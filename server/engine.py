@@ -319,11 +319,6 @@ class MatchEngine:
                     balances[player_id] -= GUARD_COST
                     guarded.add(player_id)
                     self._append_ledger(db, match_id, round_no, player_id, -GUARD_COST, "guard_cost", now=now)
-                    db.execute(
-                        "UPDATE match_players SET successful_guards = successful_guards + 1 "
-                        "WHERE match_id = ? AND player_id = ?",
-                        (match_id, player_id),
-                    )
 
         for action in actions:
             if action["action_type"] != "wager":
@@ -353,6 +348,11 @@ class MatchEngine:
             attacker = player_map[attacker_id]
             target = player_map[target_id]
             if target_id in guarded:
+                db.execute(
+                    "UPDATE match_players SET successful_guards = successful_guards + 1 "
+                    "WHERE match_id = ? AND player_id = ?",
+                    (match_id, target_id),
+                )
                 blocked_attacks.append({
                     "attacker_id": attacker_id,
                     "attacker_name": attacker["display_name"],
@@ -489,9 +489,6 @@ class MatchEngine:
             self._authorize(db, match["id"], player_id)
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
-            if match["phase"] != "actions":
-                raise MatchNotActive("انتهت مرحلة الاختيارات السرية لهذه الجولة.")
-
             existing = db.execute(
                 "SELECT * FROM round_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
                 (match["id"], match["round_no"], player_id),
@@ -507,6 +504,9 @@ class MatchEngine:
                     db.commit()
                     return self.get_state(code, player_id)
                 raise ActionLocked("تم قفل اختيارك لهذه الجولة. انتظر كشف النتائج.")
+
+            if match["phase"] != "actions":
+                raise MatchNotActive("انتهت مرحلة الاختيارات السرية لهذه الجولة.")
 
             current = self._authorize(db, match["id"], player_id)
             if action_type == "steal":
@@ -709,9 +709,6 @@ class MatchEngine:
             self._authorize(db, match["id"], player_id)
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
-            if match["phase"] != "revenge":
-                raise MatchNotActive("مرحلة الانتقام غير مفتوحة الآن.")
-
             round_row = db.execute(
                 "SELECT public_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
@@ -735,6 +732,9 @@ class MatchEngine:
                     db.commit()
                     return self.get_state(code, player_id)
                 raise ActionLocked("تم تسجيل قرار الانتقام لهذه الجولة.")
+
+            if match["phase"] != "revenge":
+                raise MatchNotActive("مرحلة الانتقام غير مفتوحة الآن.")
 
             current = self._authorize(db, match["id"], player_id)
             if action_type == "counterstrike":
