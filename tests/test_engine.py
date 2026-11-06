@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from server.challenges import CHALLENGE_BY_ID, ROUND_CHALLENGES
+from server.challenges import CHALLENGE_BY_ID
 from server.engine import (
     ActionLocked,
     MatchEngine,
