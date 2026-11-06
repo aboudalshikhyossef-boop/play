@@ -15,9 +15,10 @@ from contextlib import closing
 from typing import Any, Dict, List, Optional
 
 from .challenges import (
-    CHALLENGE_BY_ID,
     CHALLENGE_REWARD,
     CHALLENGE_SECONDS,
+    challenge_fingerprint,
+    generate_challenge,
     ROUND_CHALLENGES,
 )
 from .store import GameStore, InvalidInput, NotFound, RoomNotOpen, StoreError, _normalize_code
@@ -202,6 +203,19 @@ class MatchEngine:
                     FOREIGN KEY (match_id, player_id) REFERENCES match_players(match_id, player_id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS challenge_history (
+                    fingerprint TEXT PRIMARY KEY,
+                    prompt TEXT NOT NULL,
+                    family TEXT NOT NULL,
+                    options_json TEXT NOT NULL,
+                    used_at INTEGER NOT NULL,
+                    match_id TEXT,
+                    round_no INTEGER
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_challenge_history_used_at
+                ON challenge_history(used_at);
+
                 CREATE TABLE IF NOT EXISTS coin_ledger (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -226,6 +240,35 @@ class MatchEngine:
                 db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_json TEXT")
             if "challenge_result_json" not in round_columns:
                 db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_result_json TEXT")
+
+            # Backfill old fixed-deck questions so upgrading an existing game
+            # database does not make previously played prompts eligible again.
+            legacy_rows = db.execute(
+                "SELECT match_id, round_no, challenge_json, created_at "
+                "FROM match_rounds WHERE challenge_json IS NOT NULL"
+            ).fetchall()
+            for legacy_row in legacy_rows:
+                legacy = self._json_load(legacy_row["challenge_json"], None)
+                if not isinstance(legacy, dict) or not isinstance(legacy.get("prompt"), str):
+                    continue
+                options = legacy.get("options")
+                if not isinstance(options, list):
+                    options = []
+                family = legacy.get("family") if isinstance(legacy.get("family"), str) else "قديم"
+                db.execute(
+                    "INSERT OR IGNORE INTO challenge_history "
+                    "(fingerprint, prompt, family, options_json, used_at, match_id, round_no) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        challenge_fingerprint(legacy["prompt"], options),
+                        legacy["prompt"],
+                        family,
+                        json.dumps(options, ensure_ascii=False),
+                        legacy_row["created_at"],
+                        legacy_row["match_id"],
+                        legacy_row["round_no"],
+                    ),
+                )
 
     @staticmethod
     def _json_load(value: Optional[str], fallback: Any) -> Any:
@@ -254,17 +297,56 @@ class MatchEngine:
             (match_id, round_no),
         ).fetchone()
         challenge = MatchEngine._json_load(row["challenge_json"] if row else None, None)
-        if not isinstance(challenge, dict) or challenge.get("id") not in CHALLENGE_BY_ID:
-            return dict(ROUND_CHALLENGES[0])
+        valid = (
+            isinstance(challenge, dict)
+            and isinstance(challenge.get("id"), str)
+            and isinstance(challenge.get("prompt"), str)
+            and isinstance(challenge.get("family"), str)
+            and isinstance(challenge.get("title"), str)
+            and isinstance(challenge.get("options"), list)
+            and len(challenge["options"]) >= 3
+            and all(isinstance(option, str) for option in challenge["options"])
+            and len(set(challenge["options"])) == len(challenge["options"])
+            and isinstance(challenge.get("correct_index"), int)
+            and not isinstance(challenge.get("correct_index"), bool)
+            and 0 <= challenge["correct_index"] < len(challenge["options"])
+            and isinstance(challenge.get("explanation"), str)
+        )
+        if not valid:
+            raise StoreError("تعذر تحميل سؤال الجولة المحفوظ. لم يتم استبداله بسؤال قديم.")
         return challenge
 
-    @staticmethod
-    def _next_round_challenge(previous_id: str) -> Dict[str, Any]:
-        choices = [
-            challenge for challenge in ROUND_CHALLENGES
-            if challenge["id"] != previous_id
-        ]
-        return dict(secrets.choice(choices))
+    def _claim_unique_challenge(
+        self, db: sqlite3.Connection, match_id: str, round_no: int
+    ) -> Dict[str, Any]:
+        # BEGIN IMMEDIATE around every caller serializes claims from simultaneous
+        # match starts. The UNIQUE fingerprint remains the final race-condition
+        # guard and history intentionally has no FK to matches, so rematches and
+        # even deletion of old match records cannot erase played-question history.
+        for _attempt in range(256):
+            challenge = generate_challenge()
+            fingerprint = challenge_fingerprint(
+                challenge["prompt"], challenge["options"]
+            )
+            inserted = db.execute(
+                "INSERT OR IGNORE INTO challenge_history "
+                "(fingerprint, prompt, family, options_json, used_at, match_id, round_no) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    fingerprint,
+                    challenge["prompt"],
+                    challenge["family"],
+                    json.dumps(challenge["options"], ensure_ascii=False),
+                    int(time.time()),
+                    match_id,
+                    round_no,
+                ),
+            )
+            if inserted.rowcount == 1:
+                return challenge
+        raise StoreError(
+            "لم أتمكن من العثور على سؤال جديد غير مستخدم. أوقفنا بدء الجولة بدل تكرار سؤال سابق."
+        )
 
     @staticmethod
     def _next_round_event(previous_id: str) -> Dict[str, str]:
@@ -358,6 +440,7 @@ class MatchEngine:
                         row["color"], row["avatar"], INITIAL_COINS, REVENGE_CHARGES,
                     ),
                 )
+            first_challenge = self._claim_unique_challenge(db, match_id, 1)
             db.execute(
                 "INSERT INTO match_rounds "
                 "(match_id, round_no, created_at, event_json, challenge_json) "
@@ -365,7 +448,7 @@ class MatchEngine:
                 (
                     match_id, now,
                     json.dumps(ROUND_EVENTS["opening"], ensure_ascii=False),
-                    json.dumps(secrets.choice(ROUND_CHALLENGES), ensure_ascii=False),
+                    json.dumps(first_challenge, ensure_ascii=False),
                 ),
             )
             db.commit()
@@ -988,9 +1071,8 @@ class MatchEngine:
 
         previous_event = self._round_event(db, match["id"], match["round_no"])
         next_event = self._next_round_event(previous_event["id"])
-        previous_challenge = self._round_challenge(db, match["id"], match["round_no"])
-        next_challenge = self._next_round_challenge(previous_challenge["id"])
         next_round = match["round_no"] + 1
+        next_challenge = self._claim_unique_challenge(db, match["id"], next_round)
         db.execute(
             "UPDATE matches SET round_no = ?, phase = 'actions', deadline_at = ?, "
             "revision = revision + 1, updated_at = ? WHERE id = ?",
