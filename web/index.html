@@ -191,6 +191,45 @@
           <div id="challengeDuelResults" class="challenge-duel-results"></div>
         </div>
 
+        <div id="eventPanel" class="game-section-card event-panel hidden">
+          <div class="eyebrow">قرار حدث الفوضى — سري</div>
+          <h3 id="eventTitle">حدث الجولة</h3>
+          <p id="eventDescription" class="muted">يظهر شرح الحدث هنا.</p>
+          <p id="eventRule" class="event-rule">اقرأ الأثر جيدًا قبل إرسال قرارك.</p>
+
+          <label for="eventChoice">اختيارك</label>
+          <select id="eventChoice" class="text-input">
+            <option value="">اختر قرارك</option>
+          </select>
+
+          <div id="eventTargetWrap" class="hidden">
+            <label for="eventTarget">اللاعب المستهدف</label>
+            <select id="eventTarget" class="text-input"></select>
+          </div>
+
+          <div id="eventAmountWrap" class="hidden">
+            <label for="eventAmount">قيمة العرض</label>
+            <select id="eventAmount" class="text-input">
+              <option value="0">0 عملات</option>
+              <option value="1">عملة واحدة</option>
+              <option value="2">عملتان</option>
+              <option value="3">3 عملات</option>
+            </select>
+          </div>
+
+          <button id="eventSubmit" class="button button-primary" type="button">أرسل قراري السري</button>
+          <div id="eventStatus" class="notice" role="status" aria-live="polite">
+            لا تظهر قرارات اللاعبين قبل أن ينتهي الجميع.
+          </div>
+        </div>
+
+        <div id="eventResultPanel" class="challenge-summary event-result-panel hidden" aria-live="polite">
+          <div class="eyebrow">كشف حدث الفوضى</div>
+          <h3 id="eventResultTitle">نتيجة الحدث</h3>
+          <p id="eventResultDescription" class="muted"></p>
+          <div id="eventResultRows" class="challenge-results"></div>
+        </div>
+
         <div class="game-section-card">
           <div class="players-heading">
             <h3>أرصدة اللاعبين</h3>
