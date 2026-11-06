@@ -8,7 +8,7 @@ This file distinguishes owner-confirmed physical-device results from automated t
 - Python 3: installed; exact laptop version is not yet recorded.
 - Access path: Cloudflare Quick Tunnel to a localhost-only Python server.
 - Client devices: two Android phones and iPhone 4S / iOS 9.3.6 Safari.
-- Current application: room/lobby foundation, eight-round match engine, beginner rules guide, and five event-card effects. The broader challenge catalogue and full visual/audio systems remain in progress.
+- Current application: room/lobby foundation, eight-round engine, eight-format generated challenge system with persistent no-repeat history, beginner rules and round roadmap, and five event-card effects. Additional bluff/prediction/duel formats and full visual/audio systems remain in progress.
 
 ## Network history
 
@@ -44,7 +44,7 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 ## Automated checks run during development
 
-The repository test suite now contains 58 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, generated challenge diversity, permanent no-repeat history across matches and engine restarts, legacy question migration, private timed challenge scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest fully verified GitHub Actions run passed: [run 96 — all 58 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42266496009).
+The repository test suite now contains 58 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, generated challenge diversity, permanent no-repeat history across matches and engine restarts, legacy question migration, private timed challenge scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest fully verified GitHub Actions run passed: [run 107 — all 58 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42266953174).
 
 Local checks also include:
 - Python compileall.
