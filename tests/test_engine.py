@@ -7,9 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from server.challenges import CHALLENGE_BY_ID, ROUND_CHALLENGES
 from server.engine import (
     ActionLocked,
     MatchEngine,
+    MatchNotActive,
     MatchNotReady,
     ROUND_EVENTS,
 )
@@ -36,9 +38,24 @@ class MatchEngineTests(unittest.TestCase):
             self.store.set_ready(created["invite_code"], token, True)
         return created["invite_code"], tokens
 
+    def answer_challenge_for_all(self, code, state):
+        challenge = CHALLENGE_BY_ID[state["challenge"]["id"]]
+        wrong_index = (challenge["correct_index"] + 1) % len(challenge["options"])
+        player_ids = [player["id"] for player in state["players"]]
+        for index, player_id in enumerate(player_ids):
+            state = self.engine.submit_challenge(
+                code,
+                player_id,
+                "auto-challenge-r%02d-p%d" % (state["round"], index + 1),
+                wrong_index,
+            )
+        return state
+
     def start(self, count=3):
         code, tokens = self.create_ready_room(count)
-        state = self.engine.start_match(code, self.store.get_session(tokens[0])["player_id"])
+        player_id = self.store.get_session(tokens[0])["player_id"]
+        state = self.engine.start_match(code, player_id)
+        state = self.answer_challenge_for_all(code, state)
         return code, tokens, state
 
     def set_round_event(self, match_id, round_no, event_id):
@@ -222,8 +239,15 @@ class MatchEngineTests(unittest.TestCase):
             state = self.engine.get_state(code, player_ids[0])
 
             if round_no < 8:
-                self.assertEqual(state["phase"], "actions")
+                self.assertEqual(state["phase"], "challenge")
                 self.assertEqual(state["round"], round_no + 1)
+                self.assertNotEqual(
+                    state["challenge"]["id"],
+                    CHALLENGE_BY_ID[ROUND_CHALLENGES[0]["id"]]["id"]
+                    if round_no == 0 else "",
+                )
+                state = self.answer_challenge_for_all(code, state)
+                self.assertEqual(state["phase"], "actions")
             else:
                 self.assertEqual(state["phase"], "finished")
                 self.assertEqual(state["status"], "finished")
@@ -254,6 +278,9 @@ class MatchEngineTests(unittest.TestCase):
         self.assertIn(round_two["round_event"]["id"], ROUND_EVENTS)
         self.assertNotEqual(round_two["round_event"]["id"], "opening")
         self.assertEqual(round_two["round_event"], same_card["round_event"])
+        self.assertEqual(round_two["phase"], "challenge")
+        self.assertEqual(round_two["challenge"], same_card["challenge"])
+        round_two = self.answer_challenge_for_all(code, round_two)
 
         for index, player_id in enumerate(ids):
             state = self.engine.submit_action(
@@ -267,6 +294,10 @@ class MatchEngineTests(unittest.TestCase):
         round_three = self.engine.get_state(code, ids[0])
         self.assertNotEqual(
             round_three["round_event"]["id"], round_two["round_event"]["id"]
+        )
+        self.assertEqual(round_three["phase"], "challenge")
+        self.assertNotEqual(
+            round_three["challenge"]["id"], round_two["challenge"]["id"]
         )
 
     def test_market_rush_increases_successful_steal_limit_to_three(self):
@@ -342,6 +373,67 @@ class MatchEngineTests(unittest.TestCase):
         balances = {p["id"]: p["coins"] for p in result["players"]}
         self.assertEqual(balances[ids[0]], 16)
         self.assertEqual(result["result"]["wagers"][0]["delta"], 6)
+
+
+    def test_challenge_answers_are_private_until_everyone_submits_and_score_correct_answers(self):
+        code, tokens = self.create_ready_room(3)
+        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        state = self.engine.start_match(code, player_ids[0])
+        self.assertEqual(state["phase"], "challenge")
+        self.assertIsNone(state["challenge_result"])
+        self.assertNotIn("correct_index", state["challenge"])
+
+        challenge = CHALLENGE_BY_ID[state["challenge"]["id"]]
+        correct = challenge["correct_index"]
+        wrong = (correct + 1) % len(challenge["options"])
+        first = self.engine.submit_challenge(code, player_ids[0], "quiz-answer-0001", correct)
+        self.assertEqual(first["phase"], "challenge")
+        self.assertTrue(first["private"]["challenge_submitted"])
+        self.assertIsNone(first["challenge_result"])
+
+        second_view = self.engine.get_state(code, player_ids[1])
+        self.assertFalse(second_view["private"]["challenge_submitted"])
+        self.assertIsNone(second_view["challenge_result"])
+        self.assertEqual([p["coins"] for p in second_view["players"]], [10, 10, 10])
+
+        self.engine.submit_challenge(code, player_ids[1], "quiz-answer-0002", wrong)
+        final = self.engine.submit_challenge(code, player_ids[2], "quiz-answer-0003", correct)
+        self.assertEqual(final["phase"], "actions")
+        self.assertEqual([p["coins"] for p in final["players"]], [12, 10, 12])
+        self.assertEqual(final["challenge_result"]["correct_answer"], challenge["options"][correct])
+        self.assertEqual(
+            [row["correct"] for row in final["challenge_result"]["answers"]],
+            [True, False, True],
+        )
+
+    def test_challenge_answer_is_idempotent_and_locked_after_first_submission(self):
+        code, tokens = self.create_ready_room(3)
+        player_id = self.store.get_session(tokens[0])["player_id"]
+        state = self.engine.start_match(code, player_id)
+        answer = 0
+        first = self.engine.submit_challenge(code, player_id, "quiz-retry-0001", answer)
+        again = self.engine.submit_challenge(code, player_id, "quiz-retry-0001", answer)
+        self.assertEqual(first["phase"], "challenge")
+        self.assertTrue(again["private"]["challenge_submitted"])
+        with self.assertRaises(ActionLocked):
+            self.engine.submit_challenge(code, player_id, "quiz-retry-0002", (answer + 1) % 3)
+
+    def test_actions_cannot_start_before_challenge_and_timeout_answers_are_no_penalty(self):
+        code, tokens = self.create_ready_room(3)
+        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        state = self.engine.start_match(code, player_ids[0])
+        with self.assertRaises(MatchNotActive):
+            self.engine.submit_action(code, player_ids[0], "quiz-gate-pass-01", "pass")
+
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                (int(time.time()) - 1, state["match_id"]),
+            )
+        advanced = self.engine.get_state(code, player_ids[0])
+        self.assertEqual(advanced["phase"], "actions")
+        self.assertTrue(all(not item["answered"] for item in advanced["challenge_result"]["answers"]))
+        self.assertEqual([p["coins"] for p in advanced["players"]], [10, 10, 10])
 
 if __name__ == "__main__":
     unittest.main()
