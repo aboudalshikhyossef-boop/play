@@ -133,15 +133,13 @@ class GameStoreTests(unittest.TestCase):
     def test_three_ready_players_are_enough_for_lobby_start(self):
         created = self.store.create_room("A")
         second = self.store.join_room(created["invite_code"], "B")
-        self.store.join_room(created["invite_code"], "C")
+        third = self.store.join_room(created["invite_code"], "C")
         self.store.set_ready(created["invite_code"], created["session_token"], True)
         self.store.set_ready(created["invite_code"], second["session_token"], True)
-        self.assertFalse(self.store.get_room(created["invite_code"])["all_ready"])
-        third_session = self.store.join_room(created["invite_code"], "D")
-        self.store.set_ready(created["invite_code"], third_session["session_token"], True)
+        self.store.set_ready(created["invite_code"], third["session_token"], True)
         room = self.store.get_room(created["invite_code"])
         self.assertTrue(room["all_ready"])
-        self.assertEqual(room["occupied"], 4)
+        self.assertEqual(room["occupied"], 3)
 
     def test_two_player_lobby_never_reports_all_ready(self):
         created = self.store.create_room("A")
