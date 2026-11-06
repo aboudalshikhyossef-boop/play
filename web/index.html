@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111326">
+  <meta name="description" content="CHAOS FAMILY BATTLE — لعبة عائلية لأربعة لاعبين">
+  <title>CHAOS FAMILY BATTLE</title>
+  <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">C</div>
+      <div class="brand-copy">
+        <div class="brand-name">CHAOS <span>FAMILY BATTLE</span></div>
+        <div class="brand-tagline">ثق بالجميع... أو لا تثق بأحد</div>
+      </div>
+      <div class="connection-pill"><span class="connection-dot"></span><span id="connectionText">جاري الاتصال</span></div>
+    </header>
+
+    <main>
+      <section class="hero-card">
+        <div class="eyebrow">أربعة لاعبين · فوضى بلا حدود</div>
+        <h1>اللعبة تبدأ<br><span>عندما تنكسر الثقة.</span></h1>
+        <p>سرقة، خداع، تحديات، وانتقام. أنشئ غرفة واجمع اللاعبين الأربعة.</p>
+      </section>
+
+      <section id="homeScreen" class="screen" aria-labelledby="homeTitle">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">ابدأ المواجهة</div>
+            <h2 id="homeTitle">ادخل إلى الفوضى</h2>
+          </div>
+          <span class="step-label">01 / 03</span>
+        </div>
+
+        <div class="form-card">
+          <div class="card-icon create-icon" aria-hidden="true">✦</div>
+          <h3>إنشاء غرفة جديدة</h3>
+          <p class="muted">ستحصل على رمز دعوة، وستكون اللاعب الأول مثل بقية اللاعبين.</p>
+          <label for="createName">اسم اللاعب</label>
+          <input id="createName" class="text-input" type="text" maxlength="18" autocomplete="nickname" placeholder="اكتب اسمك">
+          <button id="createButton" class="button button-primary" type="button">إنشاء الغرفة</button>
+        </div>
+
+        <div class="form-card join-card">
+          <div class="card-icon join-icon" aria-hidden="true">↗</div>
+          <h3>الانضمام إلى غرفة</h3>
+          <p class="muted">أدخل رمز الدعوة الذي أرسله منشئ الغرفة.</p>
+          <label for="joinName">اسم اللاعب</label>
+          <input id="joinName" class="text-input" type="text" maxlength="18" autocomplete="nickname" placeholder="اكتب اسمك">
+          <label for="roomCode">رمز الغرفة</label>
+          <input id="roomCode" class="text-input code-input" type="text" maxlength="10" autocapitalize="characters" autocomplete="off" placeholder="مثال: A7K9M2P4Q8">
+          <button id="joinButton" class="button button-secondary" type="button">انضم إلى الغرفة</button>
+        </div>
+        <div id="homeStatus" class="notice" role="status" aria-live="polite">الاتصال جاهز. أنشئ غرفة أو أدخل رمز دعوة.</div>
+      </section>
+
+      <section id="lobbyScreen" class="screen hidden" aria-labelledby="lobbyTitle">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">غرفة الانتظار</div>
+            <h2 id="lobbyTitle">اجمع فريقك</h2>
+          </div>
+          <span class="step-label">02 / 03</span>
+        </div>
+
+        <div class="room-card">
+          <div class="room-meta">رمز الدعوة الخاص بالغرفة</div>
+          <div id="roomCodeDisplay" class="room-code" dir="ltr">----------</div>
+          <div class="invite-row">
+            <input id="inviteLink" class="invite-input" type="text" readonly value="">
+            <button id="copyButton" class="copy-button" type="button">نسخ الرابط</button>
+          </div>
+          <p class="small-note">أرسل الرابط نفسه إلى اللاعبين الثلاثة. لا تشارك رمز الغرفة علنًا.</p>
+        </div>
+
+        <div class="players-heading">
+          <h3>اللاعبون</h3>
+          <span id="playerCount" class="count-pill">0 / 4</span>
+        </div>
+        <div id="playerSeats" class="player-seats" aria-live="polite"></div>
+
+        <div id="lobbyNotice" class="notice" role="status" aria-live="polite">بانتظار انضمام اللاعبين.</div>
+        <div class="lobby-actions">
+          <button id="readyButton" class="button button-primary" type="button">أنا جاهز</button>
+          <button id="leaveButton" class="button button-quiet" type="button">مغادرة الغرفة</button>
+        </div>
+        <p class="small-note center-note">لا توجد صلاحيات لعب خاصة لمن أنشأ الغرفة. الجميع يلعبون بالقواعد نفسها.</p>
+      </section>
+
+      <section class="footer-note">
+        <span class="footer-mark">◆</span>
+        <span>خادم واحد · أربع جلسات مستقلة · مزامنة مركزية</span>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
