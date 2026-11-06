@@ -449,6 +449,24 @@
     byId("roundEvents").appendChild(node);
   }
 
+  function renderRoundEvent(event) {
+    var current = event || {};
+    setTextById("roundEventTitle", current.title || "بطاقة فوضى الجولة");
+    setTextById("roundEventDescription", current.description || "لا توجد قاعدة إضافية في هذه الجولة.");
+    setTextById("roundEventEffect", current.effect || "");
+    var eventCard = byId("roundEventCard");
+    eventCard.className = "round-event-card" +
+      (current.id && current.id !== "opening" ? " round-event-active" : "");
+  }
+
+  function toggleRules() {
+    var panel = byId("rulesPanel");
+    var isHidden = /\\bhidden\\b/.test(panel.className);
+    show(panel, isHidden);
+    byId("rulesToggle").setAttribute("aria-expanded", isHidden ? "true" : "false");
+    setTextById("rulesToggle", isHidden ? "إخفاء شرح الحركات" : "شرح الحركات — اضغط هنا");
+  }
+
   function renderRoundResult(result) {
     var target = byId("roundEvents");
     while (target.firstChild) {
@@ -457,6 +475,10 @@
     if (!result) {
       addEvent("لم تصل تفاصيل نتيجة الجولة بعد.", "");
       return;
+    }
+
+    if (result.event) {
+      addEvent("بطاقة الجولة: " + result.event.title + " — " + result.event.description, "warning");
     }
 
     var actions = result.actions || [];
@@ -478,7 +500,8 @@
     var thefts = result.thefts || [];
     for (var t = 0; t < thefts.length; t += 1) {
       addEvent(
-        "نجحت السرقة! " + thefts[t].attacker_name + " أخذ " + thefts[t].amount + " من " + thefts[t].target_name + ".",
+        "نجحت السرقة! " + thefts[t].attacker_name + " أخذ " + thefts[t].amount + " من " + thefts[t].target_name +
+          (thefts[t].bonus ? " وحصل على مكافأة إضافية قدرها عملة واحدة." : "."),
         "success"
       );
     }
@@ -598,6 +621,7 @@
     setTextById("timerValue", state.seconds_remaining);
     renderRoster(state.players || []);
 
+    renderRoundEvent(state.round_event);
     show(byId("actionPanel"), state.phase === "actions");
     show(byId("revengePanel"), state.phase === "revenge");
     show(byId("resultPanel"), state.phase === "result" || state.phase === "revenge");
@@ -616,7 +640,19 @@
         }
       }
       setActionControlsEnabled(!actionLocked);
-      byId("guardAction").disabled = actionLocked || myCoins < 1;
+      var freeGuard = state.round_event && state.round_event.id === "free_guard";
+      var guardCost = freeGuard ? 0 : 1;
+      byId("guardAction").disabled = actionLocked || myCoins < guardCost;
+      setTextById(
+        "guardAction",
+        freeGuard ? "درع مجاني — احمِ نفسك دون تكلفة" : "احمِ نفسك — التكلفة عملة واحدة"
+      );
+      setTextById(
+        "stealAction",
+        state.round_event && state.round_event.id === "market_rush"
+          ? "حاول سرقة حتى 3 عملات"
+          : "حاول سرقة حتى عملتين"
+      );
       var wagerOptions = byId("wagerAmount").options;
       for (var wagerIndex = 0; wagerIndex < wagerOptions.length; wagerIndex += 1) {
         wagerOptions[wagerIndex].disabled = parseInt(wagerOptions[wagerIndex].value, 10) > myCoins;
@@ -630,7 +666,9 @@
         "actionStatus",
         actionLocked
           ? "تم قفل اختيارك سرًا. انتظر بقية اللاعبين والكشف الجماعي."
-          : "اختر حركة واحدة. السرقة لا تكلف عملات، والحماية تكلف عملة، والمراهنة بين 1 و3.",
+          : freeGuard
+            ? "اختر حركة واحدة. الحماية مجانية في هذه الجولة؛ راجع بطاقة الفوضى قبل القرار."
+            : "اختر حركة واحدة. السرقة لا تكلف عملات، والحماية تكلف عملة، والمراهنة بين 1 و3.",
         actionLocked ? "good" : ""
       );
       setNotice(
@@ -639,6 +677,8 @@
         ""
       );
     } else if (state.phase === "revenge") {
+      setTextById("counterstrikeAction", state.round_event && state.round_event.id === "double_revenge"
+        ? "انتقم واسترد حتى عملتين" : "انتقم واسترد عملة واحدة");
       setTextById("phaseTitle", "نافذة الانتقام");
       setTextById("phaseDescription", "لا يمكن للانتقام أن يطلق سلسلة انتقام أخرى.");
       fillTargets(byId("revengeTarget"), state.players || [], state.private.revenge_targets || [], true);
@@ -816,6 +856,7 @@
     submitRevenge("pass", null);
   };
   byId("rematchButton").onclick = startMatch;
+  byId("rulesToggle").onclick = toggleRules;
   byId("roomCode").onkeyup = function () {
     this.value = this.value.toUpperCase();
   };
