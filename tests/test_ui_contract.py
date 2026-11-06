@@ -116,7 +116,7 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn(".challenge-duel-row", self.css)
 
     def test_questions_are_generated_and_permanently_tracked(self):
-        self.assertIn("def generate_challenge()", self.challenge_source)
+        self.assertIn("def generate_challenge(", self.challenge_source)
         self.assertIn("challenge_fingerprint", self.challenge_source)
         self.assertIn("CREATE TABLE IF NOT EXISTS challenge_history", self.engine)
         self.assertIn("INSERT OR IGNORE INTO challenge_history", self.engine)
