@@ -718,12 +718,28 @@ class MatchEngineTests(unittest.TestCase):
         self.assertIsNone(second_view["event_result"])
 
         choices = [0, 1, 2]
+        request_ids = ["black-box-%02d" % index for index in range(3)]
         for index, player_id in enumerate(ids):
             state = self.engine.submit_event(
-                code, player_id, "black-box-%02d" % index,
+                code, player_id, request_ids[index],
                 "box", amount=0, choice_value=choices[index],
             )
         self.assertEqual(state["phase"], "actions")
+        retry = self.engine.submit_event(
+            code, ids[0], request_ids[0], "box", amount=0, choice_value=choices[0]
+        )
+        self.assertEqual(retry["phase"], "actions")
+        with self.assertRaises(ActionLocked):
+            self.engine.submit_event(
+                code, ids[0], "black-box-different", "skip"
+            )
+        with closing(self.store._connect()) as db:
+            event_choice_count = db.execute(
+                "SELECT COUNT(*) AS count FROM event_actions "
+                "WHERE match_id = ? AND round_no = 1",
+                (state["match_id"],),
+            ).fetchone()["count"]
+        self.assertEqual(event_choice_count, 3)
         self.assertEqual([p["coins"] for p in state["players"]], [12, 10, 9])
         self.assertEqual(state["event_result"]["shield_names"], ["Player 2"])
         self.assertNotIn("shield_player_ids", state["event_result"])
@@ -918,6 +934,28 @@ class MatchEngineTests(unittest.TestCase):
             [entry["outcome"] for entry in timed_out["event_result"]["entries"]],
             ["لم يختر صندوقًا", "لم يختر صندوقًا", "لم يختر صندوقًا"],
         )
+
+
+    def test_court_with_four_players_requires_three_votes_for_absolute_majority(self):
+        event = dict(ROUND_EVENTS["court"])
+        code, tokens, ids, state = self.start_with_event(4, event)
+        state = self.engine.submit_event(
+            code, ids[0], "court-four-vote-01", "vote", target_player_id=ids[3]
+        )
+        state = self.engine.submit_event(
+            code, ids[1], "court-four-vote-02", "vote", target_player_id=ids[3]
+        )
+        state = self.engine.submit_event(
+            code, ids[2], "court-four-abstain", "abstain"
+        )
+        state = self.engine.submit_event(
+            code, ids[3], "court-four-abstain2", "abstain"
+        )
+        self.assertEqual(state["phase"], "actions")
+        self.assertFalse(state["event_result"]["majority"])
+        self.assertIsNone(state["event_result"]["target_name"])
+        self.assertEqual(state["event_result"]["penalty"], 0)
+        self.assertEqual(state["players"][3]["coins"], 10)
 
 if __name__ == "__main__":
     unittest.main()
