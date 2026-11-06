@@ -244,7 +244,7 @@ class MatchEngine:
                     round_no INTEGER NOT NULL,
                     player_id TEXT NOT NULL,
                     choice_type TEXT NOT NULL CHECK (
-                        choice_type IN ('box', 'keep', 'pass', 'bid', 'vote', 'abstain')
+                        choice_type IN ('box', 'skip', 'keep', 'pass', 'bid', 'vote', 'abstain')
                     ),
                     target_player_id TEXT,
                     amount INTEGER NOT NULL DEFAULT 0,
@@ -1918,7 +1918,7 @@ class MatchEngine:
                 (match["id"],),
             ).fetchall()
             round_row = db.execute(
-                "SELECT public_result_json, event_json, challenge_json, challenge_result_json "
+                "SELECT public_result_json, event_json, challenge_json, challenge_result_json, event_result_json "
                 "FROM match_rounds WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
@@ -1957,18 +1957,26 @@ class MatchEngine:
                             opponent["display_name"] if opponent else None
                         )
                         break
+            event_result_raw = self._json_load(
+                round_row["event_result_json"] if round_row else None, None
+            )
+            event_raw = self._round_event(db, match["id"], match["round_no"])
+            event_pending = (
+                match["status"] == "active"
+                and match["phase"] == "actions"
+                and challenge_result is not None
+                and self._event_requires_input(event_raw["id"])
+                and event_result_raw is None
+            )
             public_phase = (
                 "challenge"
                 if match["status"] == "active"
                 and match["phase"] == "actions"
                 and challenge_result is None
-                else match["phase"]
+                else ("event" if event_pending else match["phase"])
             )
-            round_event = self._json_load(
-                round_row["event_json"] if round_row else None, ROUND_EVENTS["opening"]
-            )
-            if not isinstance(round_event, dict):
-                round_event = dict(ROUND_EVENTS["opening"])
+            round_event = self._public_round_event(event_raw, players)
+            event_result = self._public_event_result(event_result_raw, players)
 
             challenge_count = db.execute(
                 "SELECT COUNT(*) AS count FROM challenge_answers WHERE match_id = ? AND round_no = ?",
@@ -1976,6 +1984,14 @@ class MatchEngine:
             ).fetchone()["count"]
             my_challenge = db.execute(
                 "SELECT 1 FROM challenge_answers WHERE match_id = ? AND round_no = ? AND player_id = ?",
+                (match["id"], match["round_no"], player_id),
+            ).fetchone()
+            event_count = db.execute(
+                "SELECT COUNT(*) AS count FROM event_actions WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()["count"]
+            my_event = db.execute(
+                "SELECT 1 FROM event_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
                 (match["id"], match["round_no"], player_id),
             ).fetchone()
             action_count = db.execute(
@@ -2031,6 +2047,9 @@ class MatchEngine:
             "player_count": len(public_players),
             "players": public_players,
             "round_event": round_event,
+            "event_result": event_result,
+            "event_submitted_count": event_count,
+            "event_submit_total": len(public_players),
             "challenge": public_challenge,
             "challenge_result": challenge_result,
             "challenge_answers_submitted": challenge_count,
@@ -2039,6 +2058,7 @@ class MatchEngine:
             "action_total": len(public_players),
             "private": {
                 "challenge_submitted": bool(my_challenge),
+                "event_submitted": bool(my_event),
                 "action_submitted": bool(my_action),
                 "revenge_submitted": bool(revenge_submitted),
                 "revenge_charges": my_row["revenge_charges"],
