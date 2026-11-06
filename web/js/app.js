@@ -425,6 +425,7 @@
   }
 
   function fillTargets(select, players, allowedIds, includePlaceholder) {
+    var previousValue = select.value;
     while (select.firstChild) {
       select.removeChild(select.firstChild);
     }
@@ -439,6 +440,9 @@
         continue;
       }
       addOption(select, players[i].id, "المقعد " + players[i].seat + " — " + players[i].name);
+    }
+    if (previousValue) {
+      select.value = previousValue;
     }
   }
 
@@ -584,7 +588,8 @@
     show(panel, active);
     show(summary, !!state.event_result && !active);
 
-    if (event.id && byId("eventChoice").getAttribute("data-event-id") !== event.id) {
+    var eventKey = state.match_id + ":" + state.round + ":" + event.id;
+    if (event.id && byId("eventChoice").getAttribute("data-event-key") !== eventKey) {
       var choiceSelect = byId("eventChoice");
       while (choiceSelect.firstChild) {
         choiceSelect.removeChild(choiceSelect.firstChild);
@@ -604,8 +609,9 @@
         addOption(choiceSelect, "vote", "صوّت على لاعب");
         addOption(choiceSelect, "abstain", "امتنع عن التصويت");
       }
-      choiceSelect.setAttribute("data-event-id", event.id);
+      choiceSelect.setAttribute("data-event-key", eventKey);
       choiceSelect.value = "";
+      byId("eventAmount").value = "0";
     }
 
     if (active) {
@@ -636,6 +642,10 @@
       for (var amountIndex = 0; amountIndex < amountOptions.length; amountIndex += 1) {
         amountOptions[amountIndex].disabled =
           parseInt(amountOptions[amountIndex].value, 10) > myCoins;
+      }
+      var selectedAmount = byId("eventAmount").options[byId("eventAmount").selectedIndex];
+      if (selectedAmount && selectedAmount.disabled) {
+        byId("eventAmount").value = String(Math.min(3, myCoins));
       }
       syncEventFields();
       byId("eventChoice").disabled = submitted;
