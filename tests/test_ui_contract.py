@@ -125,6 +125,12 @@ class LegacyUIContractTests(unittest.TestCase):
             self.assertIn(phrase, self.engine)
         self.assertIn(".event-panel", self.css)
         self.assertIn(".event-result-panel", self.css)
+        self.assertIn("أتجاوز اختيار الصندوق", self.js)
+        for phrase in (
+            "الصندوق الأسود", "القنبلة المتنقلة", "الملك المؤقت",
+            "المزاد السري", "المحكمة", "20 ثانية",
+        ):
+            self.assertIn(phrase, self.html)
 
     def test_bluff_prediction_and_duel_modes_are_explained_in_the_ui(self):
         for mode in ("bluff", "prediction", "duel"):
