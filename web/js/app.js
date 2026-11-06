@@ -354,18 +354,26 @@
     if (!room || mutationBusy) {
       return;
     }
+    var isRematch = !!(match && match.status === "finished");
+    var button = isRematch ? byId("rematchButton") : byId("startMatchButton");
+    var noticeId = isRematch ? "matchNotice" : "lobbyNotice";
+
     mutationBusy = true;
-    byId("startMatchButton").disabled = true;
-    setNotice("lobbyNotice", "جارٍ بدء المباراة على الخادم...", "");
+    button.disabled = true;
+    setNotice(noticeId, isRematch ? "جارٍ إنشاء مباراة جديدة..." : "جارٍ بدء المباراة على الخادم...", "");
     request("POST", "/api/rooms/" + encodeURIComponent(room.code) + "/start", {}, function (payload, status) {
       mutationBusy = false;
-      byId("startMatchButton").disabled = false;
+      button.disabled = false;
       if ((status === 201 || status === 200) && payload.ok) {
         renderMatch(payload);
         scheduleMatchPoll();
       } else {
-        setNotice("lobbyNotice", payload.error || "تعذر بدء المباراة.", "bad");
-        scheduleRoomPoll();
+        setNotice(noticeId, payload.error || "تعذر بدء المباراة.", "bad");
+        if (isRematch) {
+          scheduleMatchPoll();
+        } else {
+          scheduleRoomPoll();
+        }
       }
     });
   }
