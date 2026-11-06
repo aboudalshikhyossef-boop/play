@@ -957,5 +957,37 @@ class MatchEngineTests(unittest.TestCase):
         self.assertEqual(state["event_result"]["penalty"], 0)
         self.assertEqual(state["players"][3]["coins"], 10)
 
+
+    def test_bomb_auction_and_court_deadlines_apply_documented_defaults(self):
+        for event_id in ("bomb", "secret_auction", "court"):
+            with self.subTest(event=event_id):
+                event = dict(ROUND_EVENTS[event_id])
+                code, tokens, ids, state = self.start_with_event(3, event)
+                if event_id == "bomb":
+                    event["bomb_holder_id"] = ids[0]
+                    self.set_round_event_payload(state["match_id"], 1, event)
+
+                with closing(self.store._connect()) as db:
+                    db.execute(
+                        "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                        (int(time.time()) - 1, state["match_id"]),
+                    )
+                timed_out = self.engine.get_state(code, ids[0])
+                self.assertEqual(timed_out["phase"], "actions")
+                self.assertIsNotNone(timed_out["event_result"])
+
+                if event_id == "bomb":
+                    self.assertEqual(timed_out["event_result"]["final_holder_name"], "Player 1")
+                    self.assertEqual(timed_out["event_result"]["damage"], 2)
+                    self.assertEqual(timed_out["players"][0]["coins"], 8)
+                elif event_id == "secret_auction":
+                    self.assertIsNone(timed_out["event_result"]["winner_name"])
+                    self.assertEqual(timed_out["event_result"]["winning_bid"], 0)
+                    self.assertEqual([p["coins"] for p in timed_out["players"]], [10, 10, 10])
+                else:
+                    self.assertFalse(timed_out["event_result"]["majority"])
+                    self.assertIsNone(timed_out["event_result"]["target_name"])
+                    self.assertEqual([p["coins"] for p in timed_out["players"]], [10, 10, 10])
+
 if __name__ == "__main__":
     unittest.main()
