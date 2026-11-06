@@ -538,3 +538,55 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   .round-event-card h3 { font-size: 15px; }
   .rule-line { padding: 8px; font-size: 12px; }
 }
+
+
+/* Timed, simultaneous round quiz. */
+.challenge-panel {
+  margin-top: 10px;
+  border-color: #527e82;
+  background: #1f3037;
+}
+.challenge-panel h3,
+.challenge-summary h3 {
+  margin: 6px 0;
+  color: #f3e5b5;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.challenge-prompt {
+  margin: 12px 0;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.9;
+}
+.challenge-summary {
+  margin: 10px 0 12px;
+  padding: 14px;
+  border: 1px solid #527e82;
+  border-radius: 12px;
+  background: #1f3037;
+}
+.challenge-summary .eyebrow { color: #9bd4c5; }
+.challenge-results { margin-top: 10px; }
+.challenge-result-row {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: #e1e6ee;
+  background: #283440;
+  font-size: 12px;
+  line-height: 1.7;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.challenge-result-row.success {
+  color: #c3f0d7;
+  background: #203b36;
+}
+@media screen and (max-width: 360px) {
+  .challenge-panel h3,
+  .challenge-summary h3 { font-size: 15px; }
+  .challenge-prompt { font-size: 14px; }
+  .challenge-summary { padding: 11px; }
+}
