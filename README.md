@@ -11,13 +11,13 @@ The network test is complete enough to proceed: the owner confirmed that a Cloud
 The first real application foundation is now in the repository:
 - One authoritative Python server on the Linux Mint laptop.
 - One SQLite database on that laptop.
-- Four-seat room creation and joining.
+- Three-or-four-player room creation and joining.
 - Separate browser sessions and recovery after refresh.
 - Lobby polling and synchronized player/ready states.
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The base eight-round match engine is now implemented with secret simultaneous actions, coin transfers, timed phases, and bounded counterstrike revenge. The full challenge library, random event catalogue, remaining action families, and final visual/audio polish are still being built.** The current page creates rooms and synchronizes the lobby. The next major build stage is the actual match/round engine, followed by the complete actions, challenges, events, revenge, scoring, and final results.
+**The base eight-round match engine is now implemented with secret simultaneous actions, coin transfers, timed phases, and bounded counterstrike revenge. The full challenge library, random event catalogue, remaining action families, and final visual/audio polish are still being built.** The current match engine handles an eight-round core loop with secret actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, and final ranking. The challenge library, additional bluff/trap actions, event deck, comeback tuning, match statistics, and complete visual/audio polish remain to be integrated.
 
 ## Fixed product requirements
 
@@ -89,18 +89,20 @@ Run the automated suite with:
 
 The suite covers:
 - Creating a room and assigning the first seat.
-- Four distinct seats and rejection of a fifth player.
+- Three-player and four-player match starts, four distinct seats, and rejection of a fifth player.
 - Duplicate and invalid names.
 - Ready-state aggregation.
 - Session recovery and revocation on leave.
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
+- Three/four-player match start, ready validation, and active-room membership lock.
+- Secret action privacy, action locking, guard, steal, wager, counterstrike revenge, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
 A GitHub Actions workflow also checks Python tests, shell syntax, and JavaScript syntax.
 
-Automated checks do not replace physical testing. The new lobby still needs to be opened on all four actual devices, especially iPhone 4S Safari 9.3.6, with portrait/landscape and touch checks.
+Automated checks do not replace physical testing. The owner has confirmed that room creation, joining, and the lobby connection work on the target devices, including iPhone 4S Safari 9.3.6. The newly added game arena and match controls still need a physical-device test, including iPhone portrait/landscape and all action buttons.
 
 ## Security notes
 
@@ -120,3 +122,4 @@ Quick Tunnels are intended for testing/development and do not provide an uptime 
 - Superseded hotspot experiment: docs/06-HOTSPOT-DECISION.md
 - Cloudflare Quick Tunnel: docs/07-CLOUDFLARE-QUICK-TUNNEL.md
 - Room and lobby foundation: docs/08-ROOM-LOBBY-FOUNDATION.md
+- Match engine rules and phase sequence: docs/09-MATCH-ENGINE-RULES.md
