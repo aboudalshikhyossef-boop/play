@@ -345,3 +345,133 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   }
   .player-seat { width: calc(50% - 12px); margin-left: 6px; margin-right: 6px; }
 }
+
+
+.button-start {
+  border-color: #39866c;
+  background: #1f795b;
+  box-shadow: 0 5px 17px rgba(31, 121, 91, .22);
+}
+
+.match-banner {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid #51477b;
+  border-radius: 15px;
+  background: #211d3a;
+}
+
+.phase-title { color: #f5d17a; font-size: 18px; font-weight: bold; }
+.phase-description { margin-top: 4px; color: #b5bad0; font-size: 12px; }
+
+.timer-wrap {
+  width: 68px;
+  height: 68px;
+  -webkit-flex: 0 0 68px;
+  flex: 0 0 68px;
+  margin-right: 10px;
+  border: 2px solid #8069d1;
+  border-radius: 50%;
+  color: #fff;
+  background: #30274f;
+  text-align: center;
+}
+
+.timer-value { margin-top: 8px; font-size: 24px; font-weight: bold; line-height: 1.1; direction: ltr; }
+.timer-caption { color: #bdb2e7; font-size: 10px; }
+
+.game-section-card {
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid #343951;
+  border-radius: 15px;
+  background: #191d32;
+}
+
+.game-section-card h3 { margin: 3px 0 8px; color: #fff; font-size: 18px; }
+.match-roster { display: block; }
+
+.match-player {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  min-height: 58px;
+  margin-bottom: 7px;
+  padding: 8px 10px;
+  border: 1px solid #353b54;
+  border-radius: 11px;
+  background: #20253b;
+}
+
+.match-player:last-child { margin-bottom: 0; }
+.match-player-copy { min-width: 0; margin-right: 9px; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+.match-player-name { color: #f4f3fb; font-size: 13px; font-weight: bold; word-wrap: break-word; overflow-wrap: break-word; }
+.match-player-seat { color: #929bb8; font-size: 10px; }
+.match-coins { margin-right: 8px; color: #f4cd70; font-size: 17px; font-weight: bold; white-space: nowrap; direction: ltr; }
+.match-coin-label { display: block; color: #a6acc3; font-size: 9px; font-weight: normal; text-align: center; }
+
+.button-danger { border-color: #a84d62; background: #a33c56; }
+.button-gold { border-color: #ad873d; color: #fff6df; background: #876322; }
+
+.text-input:disabled, .button:disabled { opacity: .58; }
+
+.event-list { margin-top: 10px; }
+.event-item {
+  margin: 7px 0;
+  padding: 10px 11px;
+  border: 1px solid #3d4562;
+  border-radius: 9px;
+  color: #e5e6f0;
+  background: #222842;
+  font-size: 13px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.event-item.success { border-color: #376a58; color: #b7e8d1; background: #1a302e; }
+.event-item.warning { border-color: #85683a; color: #f2d9a6; background: #352d20; }
+.winner-name { margin: 12px 0; color: #f4cf73; font-size: 25px; font-weight: bold; text-align: center; word-wrap: break-word; overflow-wrap: break-word; }
+.final-rank-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  min-height: 45px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border: 1px solid #3a405a;
+  border-radius: 9px;
+  color: #e5e6f0;
+  background: #222842;
+  font-size: 13px;
+}
+.final-rank-row:first-child { border-color: #997b3d; background: #30291f; }
+.final-rank-name { min-width: 0; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; margin-right: 8px; word-wrap: break-word; overflow-wrap: break-word; }
+.final-rank-coins { color: #f4cd70; font-weight: bold; direction: ltr; white-space: nowrap; }
+
+@media screen and (min-width: 620px) {
+  .game-section-card { padding: 21px; }
+  .match-roster {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+    margin-left: -5px;
+    margin-right: -5px;
+  }
+  .match-player { width: calc(50% - 10px); margin-left: 5px; margin-right: 5px; }
+}
