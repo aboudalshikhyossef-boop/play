@@ -88,6 +88,7 @@ done
 
 echo ""
 echo "CHAOS hotspot is active."
+echo "Wi-Fi interface:   $IFACE"
 echo "Wi-Fi name (SSID): $SSID"
 echo "Wi-Fi password:    $PASSWORD"
 echo "Local game URL:    http://$HOTSPOT_IP:8765/"
