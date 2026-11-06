@@ -205,5 +205,97 @@ class HTTPAPITests(unittest.TestCase):
         self.assertIsNotNone(action_state["challenge_result"])
 
 
+
+    def test_secret_event_api_persists_choices_and_reveals_only_after_all_players(self):
+        status, created, cookie = self.request(
+            "POST", "/api/rooms", {"name": "Host"}
+        )
+        self.assertEqual(status, 201)
+        code = created["invite_code"]
+        cookies = [cookie.split(";", 1)[0]]
+        for name in ("Android One", "Android Two"):
+            status, joined, set_cookie = self.request(
+                "POST", "/api/rooms/%s/join" % code, {"name": name}
+            )
+            self.assertEqual(status, 201)
+            cookies.append(set_cookie.split(";", 1)[0])
+
+        for cookie_value in cookies:
+            status, ready, _ = self.request(
+                "POST", "/api/rooms/%s/ready" % code,
+                {"ready": True}, cookie_value
+            )
+            self.assertEqual(status, 200)
+
+        status, started, _ = self.request(
+            "POST", "/api/rooms/%s/start" % code, {}, cookies[0]
+        )
+        self.assertEqual(status, 201)
+        match_id = started["match_id"]
+        event = {
+            "id": "black_box",
+            "title": "الصندوق الأسود",
+            "description": "اختر صندوقًا واحدًا دون معرفة المحتوى.",
+            "effect": "مكافأة أو حماية أو فخ.",
+            "box_contents": ["bonus", "shield", "trap"],
+        }
+        db = self.server.chaos_store._connect()
+        try:
+            db.execute(
+                "UPDATE match_rounds SET event_json = ? WHERE match_id = ? AND round_no = 1",
+                (json.dumps(event, ensure_ascii=False), match_id),
+            )
+        finally:
+            db.close()
+
+        for index, cookie_value in enumerate(cookies):
+            status, challenge_state, _ = self.request(
+                "POST", "/api/rooms/%s/match/challenge" % code,
+                {"request_id": "event-http-quiz-%02d" % index, "answer_index": 0},
+                cookie_value,
+            )
+            self.assertEqual(status, 200)
+        self.assertEqual(challenge_state["phase"], "event")
+        self.assertNotIn("box_contents", challenge_state["round_event"])
+
+        status, pending, _ = self.request(
+            "GET", "/api/rooms/%s/match" % code, cookie=cookies[1]
+        )
+        self.assertEqual(status, 200)
+        self.assertFalse(pending["private"]["event_submitted"])
+        self.assertIsNone(pending["event_result"])
+
+        status, blocked_action, _ = self.request(
+            "POST", "/api/rooms/%s/match/action" % code,
+            {"request_id": "event-http-block-01", "action": "pass", "amount": 0},
+            cookies[0],
+        )
+        self.assertEqual(status, 409)
+
+        decisions = [
+            {"choice_type": "box", "choice_value": 0},
+            {"choice_type": "skip"},
+            {"choice_type": "skip"},
+        ]
+        for index, cookie_value in enumerate(cookies):
+            body = {
+                "request_id": "event-http-decision-%02d" % index,
+                "choice_type": decisions[index]["choice_type"],
+                "amount": 0,
+            }
+            if "choice_value" in decisions[index]:
+                body["choice_value"] = decisions[index]["choice_value"]
+            status, event_state, _ = self.request(
+                "POST", "/api/rooms/%s/match/event" % code,
+                body, cookie_value,
+            )
+            self.assertEqual(status, 200)
+
+        self.assertEqual(event_state["phase"], "actions")
+        self.assertEqual(event_state["event_submitted_count"], 3)
+        self.assertIsNotNone(event_state["event_result"])
+        self.assertNotIn("shield_player_ids", event_state["event_result"])
+        self.assertNotIn("box_contents", event_state["round_event"])
+
 if __name__ == "__main__":
     unittest.main()
