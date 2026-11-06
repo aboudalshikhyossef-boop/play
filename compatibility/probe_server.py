@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Small LAN-only compatibility test server for CHAOS FAMILY BATTLE.
+Small compatibility test server for CHAOS FAMILY BATTLE.
 
 Uses only the Python standard library. It serves compatibility/index.html
-and two JSON endpoints. By default it binds to the LAN address selected by
-the operating system, not to 0.0.0.0.
+and two JSON endpoints. It binds to localhost by default so Cloudflare
+Quick Tunnel is the only remote entry point.
 """
 
 import argparse
 import json
-import socket
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,24 +18,6 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent
 INDEX_FILE = ROOT / "index.html"
 MAX_BODY_BYTES = 8192
-
-
-def detect_lan_ip():
-    """Ask the OS which local interface it would use for an IPv4 route.
-
-    UDP connect selects a route and local address; it does not send a packet.
-    """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.connect(("192.0.2.1", 80))
-        address = sock.getsockname()[0]
-        if address and not address.startswith("127."):
-            return address
-    except OSError:
-        pass
-    finally:
-        sock.close()
-    return None
 
 
 class ProbeHandler(BaseHTTPRequestHandler):
@@ -53,6 +34,8 @@ class ProbeHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(body)
 
@@ -71,6 +54,8 @@ class ProbeHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
             self.end_headers()
             self.wfile.write(body)
             return
@@ -129,35 +114,31 @@ class ProbeHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the CHAOS LAN compatibility probe.")
-    parser.add_argument("--host", default="auto", help="LAN IPv4 address to bind to; default: auto-detect")
+    parser = argparse.ArgumentParser(description="Run the CHAOS compatibility probe.")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address; default is localhost only (127.0.0.1)",
+    )
     parser.add_argument("--port", type=int, default=8765, help="TCP port; default: 8765")
     args = parser.parse_args()
 
     if args.port < 1024 or args.port > 65535:
         parser.error("Choose a port between 1024 and 65535.")
 
-    host = detect_lan_ip() if args.host == "auto" else args.host
-    if not host:
-        print("Could not detect a LAN IPv4 address.")
-        print("Run: hostname -I")
-        print("Then retry with: python3 compatibility/probe_server.py --host YOUR_LAN_IP")
-        return 2
-
     try:
-        server = ThreadingHTTPServer((host, args.port), ProbeHandler)
+        server = ThreadingHTTPServer((args.host, args.port), ProbeHandler)
     except OSError as error:
-        print("Could not start the server on %s:%s: %s" % (host, args.port, error))
-        print("Check the address, port, and local firewall. Do not disable the firewall.")
+        print("Could not start the server on %s:%s: %s" % (args.host, args.port, error))
+        print("Check whether the address is available and the port is already in use.")
         return 1
 
     server.daemon_threads = True
     print("")
     print("CHAOS compatibility probe is running.")
-    print("Laptop address: http://%s:%s/" % (host, args.port))
-    print("Keep this terminal open while testing.")
+    print("Local origin: http://%s:%s/" % (args.host, args.port))
+    print("Remote access is provided only by the Cloudflare tunnel process.")
     print("Stop the server with Ctrl+C.")
-    print("No router port forwarding or public tunnel is required.")
     print("")
 
     try:
