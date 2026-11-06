@@ -740,3 +740,70 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   .challenge-duel-row { font-size: 11px; }
   .challenge-opponent { font-size: 12px; }
 }
+
+
+/* Interactive chaos events: secret choices, safe reveal, and mobile-first layout. */
+.event-panel {
+  margin-top: 11px;
+  border-color: #8a6c3d;
+  background: #2d2921;
+}
+.event-panel h3,
+.event-result-panel h3 {
+  margin: 6px 0 8px;
+  color: #ffe0a4;
+  font-size: 17px;
+  line-height: 1.65;
+}
+.event-rule {
+  margin: 10px 0 12px;
+  padding: 10px 11px;
+  border-right: 3px solid #c39a57;
+  border-radius: 7px;
+  color: #f6e4c2;
+  background: #3a3124;
+  font-size: 12px;
+  line-height: 1.9;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.event-panel label {
+  display: block;
+  margin: 9px 0 5px;
+  color: #e7d9c2;
+  font-size: 12px;
+  font-weight: bold;
+}
+.event-panel .text-input {
+  width: 100%;
+}
+.event-result-panel {
+  margin-top: 10px;
+  border-color: #8b744d;
+  background: #29271f;
+}
+.event-result-panel .eyebrow {
+  color: #e6c58a;
+}
+.event-result-panel #eventResultDescription {
+  line-height: 1.9;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.event-result-panel .challenge-result-row {
+  background: #393329;
+  border: 1px solid #66543a;
+  color: #f3e4c9;
+}
+.event-result-panel .challenge-result-row.success {
+  background: #203b36;
+  border-color: #3f756c;
+  color: #c3f0d7;
+}
+@media screen and (max-width: 360px) {
+  .event-panel { padding: 11px; }
+  .event-panel h3,
+  .event-result-panel h3 { font-size: 15px; }
+  .event-rule { padding: 8px; font-size: 11px; }
+  .event-result-panel .challenge-result-row { font-size: 11px; }
+}
