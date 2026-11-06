@@ -151,8 +151,8 @@ class LegacyUIContractTests(unittest.TestCase):
 
     def test_every_round_phase_has_a_plain_language_explanation(self):
         for phrase in (
-            "الخطوة 1 من 5", "الخطوة 2 من 5", "الخطوة 4 من 5",
-            "الخطوة 5 من 5", "كشف الخادم كل الاختيارات",
+            "الخطوة 1 من 6", "الخطوة 2 من 6", "الخطوة 5 من 6",
+            "الخطوة 6 من 6", "كشف الخادم كل الاختيارات",
             "تبدأ الجولة التالية بسؤال جديد",
         ):
             self.assertIn(phrase, self.js)
