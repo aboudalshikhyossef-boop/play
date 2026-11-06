@@ -21,9 +21,9 @@
 
     <main>
       <section class="hero-card">
-        <div class="eyebrow">أربعة لاعبين · فوضى بلا حدود</div>
+        <div class="eyebrow">ثلاثة أو أربعة لاعبين · فوضى بلا حدود</div>
         <h1>اللعبة تبدأ<br><span>عندما تنكسر الثقة.</span></h1>
-        <p>سرقة، خداع، تحديات، وانتقام. أنشئ غرفة واجمع اللاعبين الأربعة.</p>
+        <p>سرقة، خداع، تحديات، وانتقام. العب مع اثنين أو ثلاثة من أصدقائك.</p>
       </section>
 
       <section id="homeScreen" class="screen" aria-labelledby="homeTitle">
@@ -38,7 +38,7 @@
         <div class="form-card">
           <div class="card-icon create-icon" aria-hidden="true">✦</div>
           <h3>إنشاء غرفة جديدة</h3>
-          <p class="muted">ستحصل على رمز دعوة، وستكون اللاعب الأول مثل بقية اللاعبين.</p>
+          <p class="muted">ستحصل على رمز دعوة. تبدأ المباراة عند حضور ثلاثة أو أربعة لاعبين.</p>
           <label for="createName">اسم اللاعب</label>
           <input id="createName" class="text-input" type="text" maxlength="18" autocomplete="nickname" placeholder="اكتب اسمك">
           <button id="createButton" class="button button-primary" type="button">إنشاء الغرفة</button>
@@ -73,7 +73,7 @@
             <input id="inviteLink" class="invite-input" type="text" readonly value="">
             <button id="copyButton" class="copy-button" type="button">نسخ الرابط</button>
           </div>
-          <p class="small-note">أرسل الرابط نفسه إلى اللاعبين الثلاثة. لا تشارك رمز الغرفة علنًا.</p>
+          <p class="small-note">أرسل الرابط إلى اللاعبين الآخرين. يمكن بدء المباراة بثلاثة أو أربعة لاعبين.</p>
         </div>
 
         <div class="players-heading">
@@ -82,17 +82,97 @@
         </div>
         <div id="playerSeats" class="player-seats" aria-live="polite"></div>
 
-        <div id="lobbyNotice" class="notice" role="status" aria-live="polite">بانتظار انضمام اللاعبين.</div>
+        <div id="lobbyNotice" class="notice" role="status" aria-live="polite">تبدأ المباراة عند استعداد ثلاثة لاعبين على الأقل.</div>
         <div class="lobby-actions">
           <button id="readyButton" class="button button-primary" type="button">أنا جاهز</button>
+          <button id="startMatchButton" class="button button-start hidden" type="button">ابدأ المباراة</button>
           <button id="leaveButton" class="button button-quiet" type="button">مغادرة الغرفة</button>
         </div>
         <p class="small-note center-note">لا توجد صلاحيات لعب خاصة لمن أنشأ الغرفة. الجميع يلعبون بالقواعد نفسها.</p>
       </section>
 
+
+      <section id="gameScreen" class="screen hidden" aria-labelledby="gameTitle">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">ساحة المواجهة</div>
+            <h2 id="gameTitle">لا تثق بأحد</h2>
+          </div>
+          <span id="roundCounter" class="step-label">الجولة 1 / 8</span>
+        </div>
+
+        <div class="match-banner">
+          <div>
+            <div id="phaseTitle" class="phase-title">الاختيارات السرية</div>
+            <div id="phaseDescription" class="phase-description">اختر حركتك قبل انتهاء الوقت.</div>
+          </div>
+          <div class="timer-wrap">
+            <div id="timerValue" class="timer-value">60</div>
+            <div class="timer-caption">ثانية</div>
+          </div>
+        </div>
+
+        <div class="game-section-card">
+          <div class="players-heading">
+            <h3>أرصدة اللاعبين</h3>
+            <span id="matchPlayerCount" class="count-pill">3 لاعبين</span>
+          </div>
+          <div id="matchRoster" class="match-roster" aria-live="polite"></div>
+        </div>
+
+        <div id="actionPanel" class="game-section-card">
+          <div class="eyebrow">حركة سرية</div>
+          <h3>ماذا ستفعل هذه الجولة؟</h3>
+          <p class="muted">لن يرى اللاعبون اختيارك قبل انتهاء مرحلة الاختيارات وكشف الحركات معًا.</p>
+
+          <label for="actionTarget">هدف السرقة</label>
+          <select id="actionTarget" class="text-input"></select>
+
+          <button id="stealAction" class="button button-danger" type="button">اسرق عملتين من لاعب</button>
+          <button id="guardAction" class="button button-secondary" type="button">احمِ نفسك — التكلفة عملة واحدة</button>
+
+          <label for="wagerAmount">مقدار المراهنة</label>
+          <select id="wagerAmount" class="text-input">
+            <option value="1">عملة واحدة</option>
+            <option value="2">عملتان</option>
+            <option value="3">ثلاث عملات</option>
+          </select>
+          <button id="wagerAction" class="button button-gold" type="button">راهن على الحظ</button>
+          <button id="passAction" class="button button-quiet" type="button">لا أفعل شيئًا هذه الجولة</button>
+          <div id="actionStatus" class="notice" role="status" aria-live="polite">اختيارك ما زال سريًا.</div>
+        </div>
+
+        <div id="revengePanel" class="game-section-card hidden">
+          <div class="eyebrow">دور الانتقام</div>
+          <h3>لماذا تسكت عمّن سرقك؟</h3>
+          <p class="muted">يمكنك استرداد عملة واحدة من لاعب سرق منك في هذه الجولة. لديك فرصتان فقط طوال المباراة، ولا يوجد انتقام متسلسل.</p>
+          <label for="revengeTarget">اختر اللاعب الذي سرقك</label>
+          <select id="revengeTarget" class="text-input"></select>
+          <button id="counterstrikeAction" class="button button-danger" type="button">انتقم واسترد عملة</button>
+          <button id="skipRevengeAction" class="button button-quiet" type="button">أفوّت فرصة الانتقام</button>
+          <div id="revengeStatus" class="notice" role="status" aria-live="polite">نافذة الانتقام مفتوحة.</div>
+        </div>
+
+        <div id="resultPanel" class="game-section-card hidden">
+          <div class="eyebrow">كشف الجولة</div>
+          <h3 id="resultTitle">انكشفت الأوراق</h3>
+          <div id="roundEvents" class="event-list" aria-live="polite"></div>
+        </div>
+
+        <div id="finalPanel" class="game-section-card hidden">
+          <div class="eyebrow">نهاية المباراة</div>
+          <h3>الفائز في CHAOS</h3>
+          <div id="winnerName" class="winner-name"></div>
+          <div id="finalRanking" class="final-ranking"></div>
+          <button id="rematchButton" class="button button-primary" type="button">إعادة المباراة</button>
+        </div>
+
+        <div id="matchNotice" class="notice" role="status" aria-live="polite">حالة المباراة متزامنة من الخادم.</div>
+      </section>
+
       <section class="footer-note">
         <span class="footer-mark">◆</span>
-        <span>خادم واحد · أربع جلسات مستقلة · مزامنة مركزية</span>
+        <span>خادم واحد · 3 أو 4 لاعبين · مزامنة مركزية</span>
       </section>
     </main>
   </div>
