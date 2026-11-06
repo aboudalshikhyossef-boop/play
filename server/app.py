@@ -295,6 +295,23 @@ def make_handler(store: GameStore, engine: MatchEngine, message_bus: MessageBus,
                     self._json(200, state)
                     return
 
+                submit_event = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/event", path)
+                if submit_event:
+                    room_state = store.get_room_for_session(submit_event.group(1), current_token)
+                    if not room_state.get("you"):
+                        raise StoreError("لا توجد جلسة لاعب صالحة لهذه الغرفة.")
+                    state = engine.submit_event(
+                        submit_event.group(1),
+                        room_state["you"]["id"],
+                        data.get("request_id"),
+                        data.get("choice_type"),
+                        data.get("target_player_id"),
+                        data.get("amount", 0),
+                        data.get("choice_value"),
+                    )
+                    self._json(200, state)
+                    return
+
                 submit_action = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/action", path)
                 if submit_action:
                     room_state = store.get_room_for_session(submit_action.group(1), current_token)
