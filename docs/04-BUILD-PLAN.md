@@ -1,7 +1,8 @@
 # Build Plan and Quality Gates
 
 ## 1. Delivery policy
-The goal is one complete game, not a sequence of reduced public releases. We will plan and implement the full agreed feature set before calling the game complete.
+
+The goal is one complete game, not a sequence of reduced public releases. Plan and implement the full agreed feature set before calling the game complete.
 
 Development is divided into internal milestones. These are dependency and quality gates, not separate player-facing editions. Do not remove agreed features merely to reach an early demo. If scope changes, update the specification explicitly.
 
@@ -11,26 +12,28 @@ Development is divided into internal milestones. These are dependency and qualit
 - Confirm game rules, economy, revenge constraints, event catalogue, challenge families, and tie-breakers.
 - Define all screens and user flows.
 - Define responsive behavior and the 320 CSS px baseline.
-- Record browser compatibility assumptions and verification plan.
+- Define browser compatibility and visual verification criteria.
 
 Exit criteria: specifications reviewed and no unresolved contradiction in core rules.
 
-### Milestone B — Legacy browser and LAN feasibility
+### Milestone B — Legacy browser and remote-connection feasibility
 - Inspect Linux Mint version and Python runtime.
-- Create a minimal static page and local server.
-- Test direct LAN access from Android and iPhone 4S Safari 9.3.6.
-- Verify form submission, JSON response, and refresh behavior.
-- Verify host can use the same laptop as an ordinary player.
+- Create a minimal static page and local server bound to localhost.
+- Expose the local server through a temporary Cloudflare Quick Tunnel.
+- Test the generated HTTPS URL on Android and iPhone 4S Safari 9.3.6.
+- Verify form submission, JSON response, refresh behavior, and the laptop's ordinary player view.
+- Keep Proton VPN settings unchanged during the test.
 
-Exit criteria: all four devices can reach the local service; iPhone test passes on actual hardware.
+Exit criteria: the same tunnel URL is usable by all four devices; actual iPhone Safari test passes.
 
 ### Milestone C — Foundation and security
 - Establish application structure and dependency pinning.
-- Add .gitignore, example configuration, and local run scripts.
-- Implement server binding, invite code lifecycle, firewall guidance, and session model.
-- Implement persistent storage and safe reset behavior.
+- Add local run scripts and runtime-data exclusions.
+- Implement temporary tunnel startup/shutdown, local origin binding, invite code lifecycle, and session model.
+- Implement persistent SQLite storage and safe reset behavior.
+- Ensure the public tunnel cannot expose debug/admin or filesystem endpoints.
 
-Exit criteria: local service is LAN-scoped and no secrets/runtime data are tracked.
+Exit criteria: one authoritative local server is reachable through the tunnel and no secrets/runtime data are tracked.
 
 ### Milestone D — Identity, lobby, and responsive design system
 - Build reusable typography, spacing, colors, buttons, cards, dialogs, status indicators, and navigation.
@@ -67,8 +70,8 @@ Exit criteria: every mechanic has rules, UI states, server validation, and autom
 Exit criteria: visual and audio systems work without breaking the legacy phone experience.
 
 ### Milestone H — Integrated verification and completion
-- Test full matches with all four physical devices.
-- Test disconnect, refresh, duplicate requests, timeout, and host shutdown.
+- Test full matches with all four physical devices using the same tunnel URL.
+- Test disconnect, refresh, duplicate requests, timeout, tunnel interruption, and host shutdown.
 - Test portrait and landscape, long Arabic names, mixed-direction text, and keyboard-open states.
 - Run automated tests and manual device checklist.
 - Review repository for secrets and runtime data.
@@ -92,10 +95,11 @@ Exit criteria: all critical tests pass and the full game is playable start to fi
 - iPhone 4S / iOS 9.3.6 / Safari.
 - Two Android devices and their actual browsers.
 - Linux Mint laptop browser.
+- Same temporary HTTPS URL on all devices.
 - Portrait and landscape.
 - 320 CSS px width and larger widths.
 - Touch target, text legibility, overflow, overlap, and keyboard behavior.
-- Audio enabled/disabled and motion/effects reduced.
+- Tunnel disconnect/reconnect and Proton VPN behavior.
 
 ### Per-screen acceptance checklist
 - No horizontal overflow.
@@ -103,7 +107,7 @@ Exit criteria: all critical tests pass and the full game is playable start to fi
 - No overlapping interactive elements.
 - Primary touch targets are comfortably tappable.
 - Body text is legible.
-- RTL and mixed-direction content are correct.
+- RTL and mixed-direction text are correct.
 - Important actions remain reachable with keyboard open.
 - Loading, empty, error, disabled, and disconnected states exist.
 - Screen passes on actual iPhone Safari 9.3.6.
