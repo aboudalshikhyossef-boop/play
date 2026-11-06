@@ -596,7 +596,10 @@
     show(summary, !!state.event_result && !active);
 
     var eventKey = state.match_id + ":" + state.round + ":" + event.id;
-    if (event.id && byId("eventChoice").getAttribute("data-event-key") !== eventKey) {
+    var eventChanged = (
+      event.id && byId("eventChoice").getAttribute("data-event-key") !== eventKey
+    );
+    if (eventChanged) {
       var choiceSelect = byId("eventChoice");
       while (choiceSelect.firstChild) {
         choiceSelect.removeChild(choiceSelect.firstChild);
@@ -636,6 +639,9 @@
         rule + " لديك 20 ثانية. قرارات الجميع سرية حتى ينتهي الحدث."
       );
       fillTargets(byId("eventTarget"), state.players || [], null, true);
+      if (eventChanged) {
+        byId("eventTarget").value = "";
+      }
 
       var submitted = !!state.private.event_submitted;
       var myCoins = 0;
