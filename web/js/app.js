@@ -536,7 +536,9 @@
       var item = byId(ids[i]);
       item.className = "round-flow-step";
       if (phase === "finished" || i < currentStep) {
-        if (i === 3 && phase !== "revenge" && phase !== "finished" && !hasRevenge) {
+        if (i === 3 &&
+            (phase === "result" || phase === "finished") &&
+            !hasRevenge) {
           item.className += " is-skipped";
         } else {
           item.className += " is-complete";
