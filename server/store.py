@@ -66,6 +66,18 @@ def _hash_token(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _has_active_match(db: sqlite3.Connection, room_id: str) -> bool:
+    table = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'matches'"
+    ).fetchone()
+    if table is None:
+        return False
+    return db.execute(
+        "SELECT 1 FROM matches WHERE room_id = ? AND status = 'active' LIMIT 1",
+        (room_id,),
+    ).fetchone() is not None
+
+
 def _normalize_code(value: str) -> str:
     code = re.sub(r"[^A-Za-z0-9]", "", value or "").upper()
     if len(code) != ROOM_CODE_LENGTH:
@@ -182,6 +194,8 @@ class GameStore:
         ).fetchone()
         if row is None:
             return
+        if self._has_active_match(db, row["room_id"]):
+            raise RoomNotOpen("لا يمكنك مغادرة الغرفة أو نقل جلستك أثناء المباراة.")
         db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
         db.execute("DELETE FROM players WHERE id = ?", (row["id"],))
         db.execute("UPDATE rooms SET updated_at = ? WHERE id = ?", (_now(), row["room_id"]))
@@ -246,8 +260,8 @@ class GameStore:
             ).fetchone()
             if room is None:
                 raise NotFound("لم نعثر على هذه الغرفة. تحقق من الرمز.")
-            if room["phase"] != "lobby":
-                raise RoomNotOpen("هذه الغرفة لم تعد تستقبل لاعبين.")
+            if room["phase"] != "lobby" or _has_active_match(db, room["id"]):
+                raise RoomNotOpen("بدأت المباراة. لا يمكن الانضمام إلى الغرفة الآن.")
 
             old_session = None
             if current_token:
@@ -370,6 +384,8 @@ class GameStore:
             ).fetchone()
             if session is None or session["invite_code"] != code:
                 raise Unauthorized("هذه الجلسة لا تنتمي إلى الغرفة المطلوبة.")
+            if _has_active_match(db, session["room_id"]):
+                raise RoomNotOpen("لا يمكنك مغادرة المباراة الجارية. أغلق المتصفح مؤقتًا أو أكمل المباراة.")
             db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
             db.execute("DELETE FROM players WHERE id = ?", (session["player_id"],))
             db.execute("UPDATE rooms SET updated_at = ? WHERE id = ?", (_now(), session["room_id"]))
@@ -408,7 +424,7 @@ class GameStore:
             "updated_at": room["updated_at"],
             "occupied": len(players),
             "capacity": 4,
-            "all_ready": len(players) == 4 and all(player["ready"] and player["connected"] for player in players),
+            "all_ready": 3 <= len(players) <= 4 and all(player["ready"] and player["connected"] for player in players),
             "players": players,
             "you": next((player for player in players if player["id"] == player_id), None),
         }
