@@ -796,16 +796,22 @@
     for (var i = 0; i < ids.length; i += 1) {
       var item = byId(ids[i]);
       item.className = "round-flow-step";
-      if (i === 1 && !hasInteractiveEvent && phase !== "challenge") {
-        item.className += " is-skipped";
-      } else if ((phase === "finished" || i < currentStep) && i !== 1) {
-        if (i === 4 &&
-            (phase === "result" || phase === "finished") &&
-            !hasRevenge) {
-          item.className += " is-skipped";
-        } else {
+      if (i === 1) {
+        if (phase === "challenge") {
+          // The optional event step has not started yet.
+        } else if (phase === "event") {
+          item.className += " is-current";
+        } else if (eventId === "temporary_king" || hasInteractiveEvent) {
           item.className += " is-complete";
+        } else {
+          item.className += " is-skipped";
         }
+      } else if (i === 4 &&
+          (phase === "result" || phase === "finished") &&
+          !hasRevenge) {
+        item.className += " is-skipped";
+      } else if (phase === "finished" || i < currentStep) {
+        item.className += " is-complete";
       } else if (i === currentStep) {
         item.className += " is-current";
       } else if (i === 4 && phase === "result") {
@@ -1101,17 +1107,22 @@
       }
       setActionControlsEnabled(!actionLocked);
       var freeGuard = state.round_event && state.round_event.id === "free_guard";
-      var guardCost = freeGuard ? 0 : 1;
+      var temporaryKing = !!state.private.is_temporary_king;
+      var guardCost = freeGuard || temporaryKing ? 0 : 1;
       byId("guardAction").disabled = actionLocked || myCoins < guardCost;
       setTextById(
         "guardAction",
-        freeGuard ? "درع مجاني — احمِ نفسك دون تكلفة" : "احمِ نفسك — التكلفة عملة واحدة"
+        temporaryKing
+          ? "درع الملك — احمِ نفسك مجانًا"
+          : (freeGuard ? "درع مجاني — احمِ نفسك دون تكلفة" : "احمِ نفسك — التكلفة عملة واحدة")
       );
       setTextById(
         "stealAction",
-        state.round_event && state.round_event.id === "market_rush"
-          ? "حاول سرقة حتى 3 عملات"
-          : "حاول سرقة حتى عملتين"
+        temporaryKing
+          ? "بصفتك الملك، حاول سرقة حتى 3 عملات"
+          : (state.round_event && state.round_event.id === "market_rush"
+            ? "حاول سرقة حتى 3 عملات"
+            : "حاول سرقة حتى عملتين")
       );
       var wagerOptions = byId("wagerAmount").options;
       for (var wagerIndex = 0; wagerIndex < wagerOptions.length; wagerIndex += 1) {
@@ -1139,7 +1150,7 @@
     } else if (state.phase === "revenge") {
       setTextById("counterstrikeAction", state.round_event && state.round_event.id === "double_revenge"
         ? "انتقم واسترد حتى عملتين" : "انتقم واسترد عملة واحدة");
-      setTextById("phaseTitle", "الخطوة 4 من 5 — نافذة الانتقام");
+      setTextById("phaseTitle", "الخطوة 5 من 6 — نافذة الانتقام");
       setTextById("phaseDescription", "لأن سرقة ناجحة حدثت، يستطيع اللاعب الذي خسر عملات فقط اختيار السارق واسترداد عملة (أو حتى عملتين مع بطاقة الفوضى). لديك 15 ثانية؛ والانتقام لا يفتح انتقامًا جديدًا.");
       fillTargets(byId("revengeTarget"), state.players || [], state.private.revenge_targets || [], true);
       var eligible = state.private.revenge_targets && state.private.revenge_targets.length > 0;
@@ -1161,7 +1172,7 @@
       setNotice("matchNotice", "يختار المتضررون الانتقام أو تجاوز الفرصة.", "");
       renderRoundResult(state.result);
     } else if (state.phase === "result") {
-      setTextById("phaseTitle", "الخطوة 5 من 5 — نتيجة الجولة");
+      setTextById("phaseTitle", "الخطوة 6 من 6 — نتيجة الجولة");
       setTextById("phaseDescription", "كشف الخادم كل الاختيارات وحسم أثرها على العملات. راجع من ربح أو خسر؛ بعد 10 ثوانٍ تبدأ الجولة التالية بسؤال جديد.");
       setTextById("resultTitle", "نتائج الجولة " + state.round);
       setNotice("matchNotice", "الجولة التالية تبدأ تلقائيًا بعد انتهاء عدّاد النتائج.", "good");
