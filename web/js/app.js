@@ -449,6 +449,78 @@
     byId("roundEvents").appendChild(node);
   }
 
+  function renderChallenge(challenge, result, state) {
+    var panel = byId("challengePanel");
+    var summary = byId("challengeSummary");
+    var active = state.phase === "challenge";
+    var answerSelect = byId("challengeAnswer");
+    var submitButton = byId("challengeSubmit");
+    show(panel, active);
+    show(summary, !!result && !active);
+
+    if (challenge) {
+      if (answerSelect.getAttribute("data-challenge-id") !== challenge.id) {
+        while (answerSelect.firstChild) {
+          answerSelect.removeChild(answerSelect.firstChild);
+        }
+        addOption(answerSelect, "", "اختر إجابتك");
+        for (var optionIndex = 0; optionIndex < challenge.options.length; optionIndex += 1) {
+          addOption(answerSelect, String(optionIndex), challenge.options[optionIndex]);
+        }
+        answerSelect.setAttribute("data-challenge-id", challenge.id);
+        answerSelect.value = "";
+      }
+      setTextById("challengeTitle", challenge.title);
+      setTextById("challengeFamily", challenge.family);
+      setTextById("challengePrompt", challenge.prompt);
+    }
+
+    if (active) {
+      var submitted = !!state.private.challenge_submitted;
+      answerSelect.disabled = submitted;
+      submitButton.disabled = submitted;
+      setNotice(
+        "challengeStatus",
+        submitted
+          ? "وصلت إجابتك السرية. انتظر بقية اللاعبين؛ لن تظهر إجابتك لهم الآن."
+          : "أجب قبل انتهاء الوقت. تم تسجيل " + state.challenge_answers_submitted +
+            " من " + state.challenge_answer_total + " إجابات.",
+        submitted ? "good" : ""
+      );
+    } else {
+      answerSelect.disabled = true;
+      submitButton.disabled = true;
+    }
+
+    if (result) {
+      setTextById(
+        "challengeCorrectAnswer",
+        "الإجابة الصحيحة: " + result.correct_answer + " — مكافأة الإجابة الصحيحة: " + result.reward + " عملتين"
+      );
+      setTextById("challengeExplanation", result.explanation || "");
+      var holder = byId("challengeResults");
+      while (holder.firstChild) {
+        holder.removeChild(holder.firstChild);
+      }
+      var answers = result.answers || [];
+      for (var answerIndex = 0; answerIndex < answers.length; answerIndex += 1) {
+        var answer = answers[answerIndex];
+        var row = document.createElement("div");
+        row.className = "challenge-result-row" + (answer.correct ? " success" : "");
+        var description = answer.player_name + ": ";
+        if (!answer.answered) {
+          description += "لم يجب قبل انتهاء الوقت.";
+        } else if (answer.correct) {
+          description += "إجابة صحيحة — +" + answer.reward + " عملتين.";
+        } else {
+          description += "إجابة غير صحيحة (" + answer.answer_text + "). لا يوجد خصم.";
+        }
+        setText(row, description);
+        holder.appendChild(row);
+      }
+    }
+  }
+
   function renderRoundEvent(event) {
     var current = event || {};
     setTextById("roundEventTitle", current.title || "بطاقة فوضى الجولة");
@@ -465,6 +537,42 @@
     show(panel, isHidden);
     byId("rulesToggle").setAttribute("aria-expanded", isHidden ? "true" : "false");
     setTextById("rulesToggle", isHidden ? "إخفاء شرح الحركات" : "شرح الحركات — اضغط هنا");
+  }
+
+  function submitChallenge() {
+    if (!room || mutationBusy || !match || match.phase !== "challenge" ||
+        match.private.challenge_submitted) {
+      return;
+    }
+    var value = byId("challengeAnswer").value;
+    if (value === "") {
+      setNotice("challengeStatus", "اختر إجابة أولًا.", "bad");
+      return;
+    }
+    var answerIndex = parseInt(value, 10);
+    if (isNaN(answerIndex)) {
+      setNotice("challengeStatus", "الإجابة المختارة غير صالحة.", "bad");
+      return;
+    }
+
+    mutationBusy = true;
+    byId("challengeSubmit").disabled = true;
+    byId("challengeAnswer").disabled = true;
+    setNotice("challengeStatus", "جارٍ حفظ إجابتك السرية...", "");
+    request("POST", "/api/rooms/" + encodeURIComponent(room.code) + "/match/challenge", {
+      request_id: makeRequestId(),
+      answer_index: answerIndex
+    }, function (payload, status) {
+      mutationBusy = false;
+      if (status === 200 && payload.ok) {
+        renderMatch(payload);
+      } else {
+        byId("challengeSubmit").disabled = false;
+        byId("challengeAnswer").disabled = false;
+        setNotice("challengeStatus", payload.error || "تعذر حفظ إجابتك.", "bad");
+      }
+      scheduleMatchPoll();
+    });
   }
 
   function renderRoundResult(result) {
@@ -622,14 +730,24 @@
     renderRoster(state.players || []);
 
     renderRoundEvent(state.round_event);
+    renderChallenge(state.challenge, state.challenge_result, state);
     show(byId("actionPanel"), state.phase === "actions");
     show(byId("revengePanel"), state.phase === "revenge");
     show(byId("resultPanel"), state.phase === "result" || state.phase === "revenge");
     show(byId("finalPanel"), state.phase === "finished");
 
-    if (state.phase === "actions") {
+    if (state.phase === "challenge") {
+      setTextById("phaseTitle", "تحدي الجولة");
+      setTextById("phaseDescription", "أجب عن السؤال أولًا. بعد كشف الإجابات تبدأ السرقة والحماية والرهان.");
+      setNotice(
+        "matchNotice",
+        "أرسل " + state.challenge_answers_submitted + " من " +
+          state.challenge_answer_total + " لاعبين إجاباتهم.",
+        ""
+      );
+    } else if (state.phase === "actions") {
       setTextById("phaseTitle", "الاختيارات السرية");
-      setTextById("phaseDescription", "تُكشف الحركات معًا بعد إرسال الجميع أو انتهاء الوقت.");
+      setTextById("phaseDescription", "انتهى التحدي. اختر الآن حركة واحدة؛ ستُكشف اختيارات الجميع معًا.");
       fillTargets(byId("actionTarget"), state.players || [], null, true);
       var actionLocked = !!state.private.action_submitted;
       var myCoins = 0;
@@ -857,6 +975,7 @@
   };
   byId("rematchButton").onclick = startMatch;
   byId("rulesToggle").onclick = toggleRules;
+  byId("challengeSubmit").onclick = submitChallenge;
   byId("roomCode").onkeyup = function () {
     this.value = this.value.toUpperCase();
   };
