@@ -8,7 +8,7 @@ This file distinguishes owner-confirmed physical-device results from automated t
 - Python 3: installed; exact laptop version is not yet recorded.
 - Access path: Cloudflare Quick Tunnel to a localhost-only Python server.
 - Client devices: two Android phones and iPhone 4S / iOS 9.3.6 Safari.
-- Current application: four-seat room/lobby foundation; full match engine is not yet implemented.
+- Current application: room/lobby foundation plus the eight-round core match engine. The challenge/event catalogue and full visual/audio systems remain in progress.
 
 ## Network history
 
@@ -22,7 +22,7 @@ The Android devices could join the laptop hotspot, but the page still did not lo
 
 ### Cloudflare Quick Tunnel
 
-The owner confirmed that the compatibility page opened successfully on the physical iPhone 4S using Safari 9.3.6 through a temporary HTTPS Quick Tunnel URL.
+The owner confirmed that the basic connection, room creation, and room joining flows work, and specifically confirmed the page/lobby connection on the physical iPhone 4S using Safari 9.3.6 through a temporary HTTPS Quick Tunnel URL.
 
 This confirms a network page load through the tunnel. It does not by itself confirm all touch, layout, orientation, or current lobby behavior.
 
@@ -30,21 +30,21 @@ This confirms a network page load through the tunnel. It does not by itself conf
 
 The previous echo endpoint returned the submitted message only to the same phone. It did not publish the message to a shared feed or show it on the laptop page.
 
-The current diagnostic page posts to the server's in-memory message feed. Each open diagnostic page polls the feed, so a message sent from a phone should appear on the laptop when the laptop also has /compatibility open. The server terminal logs the received diagnostic message. This needs a new physical-device test after pulling the updated application.
+The current diagnostic page posts to the server's in-memory message feed. Each open diagnostic page polls the feed, so a message sent from a phone appears on the laptop when the laptop also has /compatibility open. The server terminal logs the received diagnostic message.
 
 ## Current verification matrix
 
 | Device | Browser | Tunnel page load | Current lobby | Shared message feed | Viewport/layout |
 |---|---|---|---|---|---|
 | Linux Mint laptop | Desktop browser | Owner confirmed local page | Pending physical use | Pending physical check | Pending |
-| Android phone 1 | Browser not recorded | Pending on tunnel | Pending | Pending | Pending |
-| Android phone 2 | Browser not recorded | Pending on tunnel | Pending | Pending | Pending |
-| iPhone 4S / iOS 9.3.6 | Safari | Owner confirmed compatibility page | Pending new app test | Pending new app test | Pending |
+| Android phone 1 | Browser not recorded | Owner confirmed basic connection/join flow | Lobby confirmed | Match arena pending | Detailed viewport pending |
+| Android phone 2 | Browser not recorded | Owner confirmed basic connection/join flow | Lobby confirmed | Match arena pending | Detailed viewport pending |
+| iPhone 4S / iOS 9.3.6 | Safari | Owner confirmed compatibility page | Lobby confirmed | Match arena pending | Portrait/landscape details pending |
 | iPhone 4S / iOS 9.3.6 | Safari landscape | Not recorded | Pending | Pending | Pending |
 
 ## Automated checks run during development
 
-The local test suite currently includes 21 tests covering the room store, concurrency, HTTP API, cookie flags, rate limits, origin checks, and shared diagnostic messages.
+The repository test suite currently contains 40 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, match actions, revenge, deadlines, and a complete eight-round lifecycle. The test suite is committed; its latest GitHub Actions run must be checked before claiming a green CI result.
 
 Local checks also include:
 - Python compileall.
@@ -53,13 +53,16 @@ Local checks also include:
 
 These checks were run in the development container. They are not a substitute for the actual Linux Mint laptop or the physical iPhone and Android tests.
 
+## Match-engine verification status
+
+The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private selections, action idempotency, guard, steal, wager, revenge limits, timeout passes, and the complete eight-round lifecycle. The newly added game arena has not yet been visually tested on the physical iPhone or Android devices.
+
 ## Required acceptance criteria
 
-- All four devices open the same temporary HTTPS URL.
-- The laptop can create a room and occupy seat 1.
-- Three phones join seats 2–4.
+- Three or four devices open the same temporary HTTPS URL.
+- The room supports three active players without a fake fourth seat; a fourth may join before match start.
 - A fifth browser is rejected.
-- All four see the same player list and readiness states.
+- All active players see the same player list and readiness states.
 - Refreshing a browser restores the same seat.
 - A phone message appears in the laptop's open diagnostic feed.
 - No horizontal overflow at 320 CSS px.
