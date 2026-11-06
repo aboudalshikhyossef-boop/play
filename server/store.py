@@ -408,7 +408,7 @@ class GameStore:
             "updated_at": room["updated_at"],
             "occupied": len(players),
             "capacity": 4,
-            "all_ready": len(players) == 4 and all(player["ready"] for player in players),
+            "all_ready": len(players) == 4 and all(player["ready"] and player["connected"] for player in players),
             "players": players,
             "you": next((player for player in players if player["id"] == player_id), None),
         }
