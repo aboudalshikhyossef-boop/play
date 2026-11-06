@@ -521,6 +521,56 @@
     }
   }
 
+  function renderRoundFlow(state) {
+    var phase = state.phase;
+    var currentStep = phase === "challenge" ? 0 :
+      (phase === "actions" ? 1 :
+      (phase === "revenge" ? 3 :
+      (phase === "result" ? 4 : 5)));
+    var ids = [
+      "flowChallenge", "flowAction", "flowReveal", "flowRevenge", "flowResult"
+    ];
+    var hasRevenge = !!(state.result && state.result.revenge_eligible &&
+      Object.keys(state.result.revenge_eligible).length);
+    for (var i = 0; i < ids.length; i += 1) {
+      var item = byId(ids[i]);
+      item.className = "round-flow-step";
+      if (phase === "finished" || i < currentStep) {
+        if (i === 3 && phase !== "revenge" && phase !== "finished" && !hasRevenge) {
+          item.className += " is-skipped";
+        } else {
+          item.className += " is-complete";
+        }
+      } else if (i === currentStep) {
+        item.className += " is-current";
+      } else if (i === 3 && phase === "result") {
+        item.className += " is-skipped";
+      }
+      if (i === currentStep) {
+        item.setAttribute("aria-current", "step");
+      } else {
+        item.removeAttribute("aria-current");
+      }
+    }
+
+    var status = "تبدأ الجولة بسؤال، ثم اختيار سري، ثم كشف النتائج.";
+    if (phase === "challenge") {
+      status = "أنت الآن في الخطوة 1: أجب خلال 25 ثانية. الصحيح يمنحك عملتين.";
+    } else if (phase === "actions") {
+      status = "أنت الآن في الخطوة 2: اختر حركة واحدة خلال 60 ثانية. تم كشف نتيجة السؤال.";
+    } else if (phase === "revenge") {
+      status = "أنت الآن في الخطوة 4: من خسر عملات بالسرقة يقرر الانتقام خلال 15 ثانية.";
+    } else if (phase === "result") {
+      status = "أنت الآن في الخطوة 5: تم تحديث الأرصدة. تبدأ الجولة التالية بعد 10 ثوانٍ.";
+    } else if (phase === "finished") {
+      status = "انتهت الجولات الثماني. الترتيب والفائز ظاهران أدناه.";
+    }
+    if (phase === "result" && !hasRevenge) {
+      status += " لا توجد سرقة ناجحة، لذلك تم تجاوز الانتقام.";
+    }
+    setTextById("roundFlowStatus", status);
+  }
+
   function renderRoundEvent(event) {
     var current = event || {};
     setTextById("roundEventTitle", current.title || "بطاقة فوضى الجولة");
@@ -728,6 +778,7 @@
     setTextById("roundCounter", "الجولة " + state.round + " / " + state.total_rounds);
     setTextById("timerValue", state.seconds_remaining);
     renderRoster(state.players || []);
+    renderRoundFlow(state);
 
     renderRoundEvent(state.round_event);
     renderChallenge(state.challenge, state.challenge_result, state);
@@ -737,8 +788,8 @@
     show(byId("finalPanel"), state.phase === "finished");
 
     if (state.phase === "challenge") {
-      setTextById("phaseTitle", "تحدي الجولة");
-      setTextById("phaseDescription", "أجب عن السؤال أولًا. بعد كشف الإجابات تبدأ السرقة والحماية والرهان.");
+      setTextById("phaseTitle", "الخطوة 1 من 5 — تحدي الجولة");
+      setTextById("phaseDescription", "لديك 25 ثانية. الإجابة الصحيحة تضيف عملتين إلى رصيدك؛ الإجابة الخاطئة أو عدم الإجابة لا تخصم شيئًا. لا تبدأ الحركات حتى ينتهي السؤال.");
       setNotice(
         "matchNotice",
         "أرسل " + state.challenge_answers_submitted + " من " +
@@ -746,8 +797,8 @@
         ""
       );
     } else if (state.phase === "actions") {
-      setTextById("phaseTitle", "الاختيارات السرية");
-      setTextById("phaseDescription", "انتهى التحدي. اختر الآن حركة واحدة؛ ستُكشف اختيارات الجميع معًا.");
+      setTextById("phaseTitle", "الخطوة 2 من 5 — الحركة السرية");
+      setTextById("phaseDescription", "لديك 60 ثانية لاختيار حركة واحدة: سرقة لاعب، أو حماية نفسك، أو رهان من 1 إلى 3 عملات، أو تمرير. لن يرى أحد اختيارك حتى يكشف الخادم اختيارات الجميع معًا.");
       fillTargets(byId("actionTarget"), state.players || [], null, true);
       var actionLocked = !!state.private.action_submitted;
       var myCoins = 0;
@@ -797,8 +848,8 @@
     } else if (state.phase === "revenge") {
       setTextById("counterstrikeAction", state.round_event && state.round_event.id === "double_revenge"
         ? "انتقم واسترد حتى عملتين" : "انتقم واسترد عملة واحدة");
-      setTextById("phaseTitle", "نافذة الانتقام");
-      setTextById("phaseDescription", "لا يمكن للانتقام أن يطلق سلسلة انتقام أخرى.");
+      setTextById("phaseTitle", "الخطوة 4 من 5 — نافذة الانتقام");
+      setTextById("phaseDescription", "لأن سرقة ناجحة حدثت، يستطيع اللاعب الذي خسر عملات فقط اختيار السارق واسترداد عملة (أو حتى عملتين مع بطاقة الفوضى). لديك 15 ثانية؛ والانتقام لا يفتح انتقامًا جديدًا.");
       fillTargets(byId("revengeTarget"), state.players || [], state.private.revenge_targets || [], true);
       var eligible = state.private.revenge_targets && state.private.revenge_targets.length > 0;
       var revengeLocked = !!state.private.revenge_submitted || !eligible || state.private.revenge_charges <= 0;
@@ -819,14 +870,14 @@
       setNotice("matchNotice", "يختار المتضررون الانتقام أو تجاوز الفرصة.", "");
       renderRoundResult(state.result);
     } else if (state.phase === "result") {
-      setTextById("phaseTitle", "انكشفت الأوراق");
-      setTextById("phaseDescription", "تُحدّث الأرصدة تلقائيًا وتبدأ الجولة التالية بعد لحظات.");
+      setTextById("phaseTitle", "الخطوة 5 من 5 — نتيجة الجولة");
+      setTextById("phaseDescription", "كشف الخادم كل الاختيارات وحسم أثرها على العملات. راجع من ربح أو خسر؛ بعد 10 ثوانٍ تبدأ الجولة التالية بسؤال جديد.");
       setTextById("resultTitle", "نتائج الجولة " + state.round);
       setNotice("matchNotice", "الجولة التالية تبدأ تلقائيًا بعد انتهاء عدّاد النتائج.", "good");
       renderRoundResult(state.result);
     } else if (state.phase === "finished") {
-      setTextById("phaseTitle", "انتهت المباراة");
-      setTextById("phaseDescription", "تم حسم الترتيب النهائي على الخادم.");
+      setTextById("phaseTitle", "انتهت المباراة — اكتملت المراحل");
+      setTextById("phaseDescription", "انتهت الجولات الثماني. تم حسم الأرصدة والترتيب النهائي على الخادم؛ يمكنك مراجعة الفائز والإحصاءات ثم بدء مباراة جديدة.");
       setTextById("resultTitle", "النتائج النهائية");
       setNotice("matchNotice", "يمكنكم بدء مباراة جديدة من الغرفة نفسها.", "good");
       renderFinal(state);
