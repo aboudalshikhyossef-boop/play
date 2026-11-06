@@ -2,120 +2,113 @@
 
 ## 1. Delivery policy
 
-The goal is one complete game, not a sequence of reduced public releases. Plan and implement the full agreed feature set before calling the game complete.
+The goal is one complete game, not a sequence of reduced public releases. Development milestones are internal quality gates, not player-facing editions. We will keep the agreed feature scope and test each dependency before building on it.
 
-Development is divided into internal milestones. These are dependency and quality gates, not separate player-facing editions. Do not remove agreed features merely to reach an early demo. If scope changes, update the specification explicitly.
+## 2. Completed specification and network decisions
 
-## 2. Internal work sequence
+- Fixed four-player model.
+- Laptop is player 1 and the single local server, without game privileges.
+- Arabic-first RTL interface.
+- iPhone 4S / iOS 9.3.6 is a first-class browser target.
+- 320 CSS px is the smallest layout baseline.
+- Cloudflare Quick Tunnel is the current access path after the owner confirmed the test page opens in iPhone Safari.
+- The laptop retains the one SQLite database and authoritative game process.
 
-### Milestone A — Product and UX specification
-- Confirm game rules, economy, revenge constraints, event catalogue, challenge families, and tie-breakers.
-- Define all screens and user flows.
-- Define responsive behavior and the 320 CSS px baseline.
-- Define browser compatibility and visual verification criteria.
+## 3. Current implementation progress
 
-Exit criteria: specifications reviewed and no unresolved contradiction in core rules.
+### Foundation — implemented and automated
 
-### Milestone B — Legacy browser and remote-connection feasibility
-- Inspect Linux Mint version and Python runtime.
-- Create a minimal static page and local server bound to localhost.
-- Expose the local server through a temporary Cloudflare Quick Tunnel.
-- Test the generated HTTPS URL on Android and iPhone 4S Safari 9.3.6.
-- Verify form submission, JSON response, refresh behavior, and the laptop's ordinary player view.
-- Keep Proton VPN settings unchanged during the test.
+- Python application server binds to loopback only.
+- SQLite store for rooms, players, and hashed sessions.
+- Four-seat room creation and joining.
+- Room invite codes and player-specific sessions.
+- Secure, HttpOnly session cookie for HTTPS clients.
+- Session restoration after refresh.
+- Ready-state synchronization and leave/revoke.
+- Concurrent seat allocation protection.
+- Arabic RTL lobby page with mobile-first layout.
+- Cloudflare launcher starts the main app server, not the old compatibility-only server.
+- Cross-device diagnostic message feed now stores the message on the server and exposes it to all open diagnostic pages.
+- Automated unit and HTTP API tests.
+- GitHub Actions checks for Python, shell scripts, and JavaScript syntax.
 
-Exit criteria: the same tunnel URL is usable by all four devices; actual iPhone Safari test passes.
+### Physical compatibility — partially verified
 
-### Milestone C — Foundation and security
-- Establish application structure and dependency pinning.
-- Add local run scripts and runtime-data exclusions.
-- Implement temporary tunnel startup/shutdown, local origin binding, invite code lifecycle, and session model.
-- Implement persistent SQLite storage and safe reset behavior.
-- Ensure the public tunnel cannot expose debug/admin or filesystem endpoints.
+- The owner confirmed the Quick Tunnel test page opens in iPhone 4S Safari 9.3.6.
+- Earlier Android tests confirmed hotspot association but did not prove tunnel-based page access.
+- Android tunnel loading and the new real lobby still need confirmation on both physical Android devices.
+- New lobby layout still needs actual iPhone portrait/landscape verification.
 
-Exit criteria: one authoritative local server is reachable through the tunnel and no secrets/runtime data are tracked.
+## 4. Remaining implementation sequence
 
-### Milestone D — Identity, lobby, and responsive design system
-- Build reusable typography, spacing, colors, buttons, cards, dialogs, status indicators, and navigation.
-- Build registration, avatar/color selection, four-seat lobby, readiness, and reconnect.
-- Verify every screen at 320 CSS px before expanding to larger screens.
+### Milestone D — Complete lobby UX and device acceptance
+- Test room creation and joining from all four real devices.
+- Verify seat display, readiness changes, reconnect after refresh, and leaving.
+- Check 320 CSS px, Arabic line wrapping, touch targets, keyboard-open behavior, portrait, and landscape.
+- Fix all clipping, overlap, and horizontal overflow.
 
-Exit criteria: four distinct players can join and remain correctly identified through refresh/reconnect.
+Exit criteria: four physical devices remain in one room and all see the same lobby state.
 
 ### Milestone E — Authoritative match engine
-- Implement match state machine and round lifecycle.
-- Implement deadlines, action locking, reveal, resolution, settlement, and sequence numbers.
-- Implement coin ledger and deterministic resolution order.
-- Implement server-side validation and idempotent action requests.
+- Define and implement the match state machine and round lifecycle.
+- Add server deadlines, action locking, reveal, resolution, and settlement.
+- Add the coin ledger with deterministic transaction order.
+- Add idempotent action requests and state revisions.
+- Persist the match state in the same SQLite database.
 
-Exit criteria: a complete scripted match resolves correctly in automated tests.
+Exit criteria: scripted full matches resolve correctly in automated tests.
 
 ### Milestone F — Full gameplay systems
-- Implement all agreed secret actions.
-- Implement bounded revenge and anti-chain protections.
-- Implement event engine and complete agreed event catalogue.
-- Implement challenge families and content loading.
-- Implement comeback balancing and anti-repetition logic.
+- Implement attack, guard, bluff, wager, trap, and all agreed secret actions.
+- Implement bounded revenge with anti-chain protections.
+- Implement the complete event catalogue.
+- Implement varied challenge families.
+- Implement comeback balancing and anti-repetition.
 - Implement match-end ranking and statistics.
 
-Exit criteria: every mechanic has rules, UI states, server validation, and automated tests.
+Exit criteria: every mechanic has rules, player UI states, server validation, and tests.
 
-### Milestone G — Full visual/audio experience
-- Complete every screen and responsive state.
-- Add local sound assets and user controls.
-- Add lightweight visual effects and clear motion states.
-- Add reduced-motion/effects-off behavior.
-- Verify no effect blocks interaction or obscures essential information.
+### Milestone G — Complete visual/audio experience
+- Complete every game screen and responsive state.
+- Add local audio assets and user controls.
+- Add lightweight visual effects, reduced-motion support, and explicit loading/error/disabled states.
+- Ensure animation never hides information or delays an action.
 
-Exit criteria: visual and audio systems work without breaking the legacy phone experience.
+Exit criteria: all screens work without breaking the legacy phone experience.
 
-### Milestone H — Integrated verification and completion
-- Test full matches with all four physical devices using the same tunnel URL.
-- Test disconnect, refresh, duplicate requests, timeout, tunnel interruption, and host shutdown.
-- Test portrait and landscape, long Arabic names, mixed-direction text, and keyboard-open states.
-- Run automated tests and manual device checklist.
-- Review repository for secrets and runtime data.
-- Complete README setup and recovery instructions.
+### Milestone H — Full integration and completion
+- Test complete matches on all four physical devices.
+- Test disconnect, refresh, duplicate actions, timeouts, and tunnel interruption.
+- Test long Arabic names, mixed-direction text, and on-screen keyboard.
+- Review all public endpoints and private-state boundaries.
+- Review the repository for secrets and runtime data.
+- Complete final setup, recovery, and maintenance documentation.
 
-Exit criteria: all critical tests pass and the full game is playable start to finish.
+Exit criteria: a complete four-player game is playable start to finish and all critical tests pass.
 
-## 3. Test strategy
+## 5. Automated test coverage currently present
 
-### Automated tests
-- Coin ledger and no-negative-balance rules.
-- Action eligibility, costs, and target validation.
-- Revenge charge limits and no infinite chains.
-- Round transition and timeout handling.
-- Event and challenge selection constraints.
-- Duplicate request idempotency.
-- Session ownership and seat limits.
-- Reconnect and stale-state handling.
+- Store: room creation, first seat assignment, distinct seats, fifth-player rejection, duplicate/invalid names, ready aggregation, leave/rejoin, session revocation, and concurrent joins.
+- HTTP: health and static assets, session cookie flags, session recovery, authenticated room reads, join capacity, ready states, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
-### Manual device tests
+Run:
+
+    bash run_tests.sh
+
+## 6. Manual device acceptance checklist
+
+- Linux Mint 22.3 laptop, desktop browser.
+- Android phone 1, actual browser.
+- Android phone 2, actual browser.
 - iPhone 4S / iOS 9.3.6 / Safari.
-- Two Android devices and their actual browsers.
-- Linux Mint laptop browser.
-- Same temporary HTTPS URL on all devices.
+- Same temporary HTTPS URL for all four devices.
+- 320 CSS px and larger widths.
 - Portrait and landscape.
-- 320 CSS px width and larger widths.
-- Touch target, text legibility, overflow, overlap, and keyboard behavior.
-- Tunnel disconnect/reconnect and Proton VPN behavior.
+- No horizontal overflow, clipped text, overlapping panels, or hidden controls.
+- Primary touch targets at least 44 CSS px in each dimension.
+- Refresh and reconnect retain the same player seat.
+- Each player sees correct readiness and connection state.
+- Laptop receives server-side messages from phones in the diagnostic feed.
 
-### Per-screen acceptance checklist
-- No horizontal overflow.
-- No clipped text or controls.
-- No overlapping interactive elements.
-- Primary touch targets are comfortably tappable.
-- Body text is legible.
-- RTL and mixed-direction text are correct.
-- Important actions remain reachable with keyboard open.
-- Loading, empty, error, disabled, and disconnected states exist.
-- Screen passes on actual iPhone Safari 9.3.6.
+Automated tests cannot mark a physical device as passed. Record the actual test result in docs/05-COMPATIBILITY-RESULTS.md.
 
-## 4. Project governance
-- Keep product decisions in docs/.
-- Update specifications before changing behavior.
-- Use focused commits with clear messages.
-- Do not commit generated runtime data.
-- Do not label internal milestones as public game releases.
-- Maintain a known-issues list until critical items are closed.
