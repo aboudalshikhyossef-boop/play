@@ -561,22 +561,245 @@
     }
   }
 
+  function syncEventFields() {
+    if (!match || !match.round_event) {
+      return;
+    }
+    var eventId = match.round_event.id;
+    var choice = byId("eventChoice").value;
+    var needsTarget = (
+      (eventId === "bomb" && choice === "pass") ||
+      (eventId === "court" && choice === "vote")
+    );
+    var needsAmount = eventId === "secret_auction";
+    show(byId("eventTargetWrap"), needsTarget);
+    show(byId("eventAmountWrap"), needsAmount);
+  }
+
+  function renderEventPanel(state) {
+    var active = state.phase === "event";
+    var event = state.round_event || {};
+    var panel = byId("eventPanel");
+    var summary = byId("eventResultPanel");
+    show(panel, active);
+    show(summary, !!state.event_result && !active);
+
+    if (event.id && byId("eventChoice").getAttribute("data-event-id") !== event.id) {
+      var choiceSelect = byId("eventChoice");
+      while (choiceSelect.firstChild) {
+        choiceSelect.removeChild(choiceSelect.firstChild);
+      }
+      if (event.id === "black_box") {
+        addOption(choiceSelect, "", "اختر صندوقًا");
+        addOption(choiceSelect, "0", "الصندوق رقم 1");
+        addOption(choiceSelect, "1", "الصندوق رقم 2");
+        addOption(choiceSelect, "2", "الصندوق رقم 3");
+      } else if (event.id === "bomb") {
+        addOption(choiceSelect, "keep", "احتفظ بالقنبلة");
+        addOption(choiceSelect, "pass", "مرّر القنبلة");
+      } else if (event.id === "secret_auction") {
+        addOption(choiceSelect, "bid", "أرسل عرضك السري");
+      } else if (event.id === "court") {
+        addOption(choiceSelect, "vote", "صوّت على لاعب");
+        addOption(choiceSelect, "abstain", "امتنع عن التصويت");
+      }
+      choiceSelect.setAttribute("data-event-id", event.id);
+      choiceSelect.value = "";
+    }
+
+    if (active) {
+      setTextById("eventTitle", event.title || "حدث الجولة");
+      setTextById("eventDescription", event.description || "");
+      var rule = event.effect || "";
+      if (event.id === "bomb" && event.bomb_starter_name) {
+        rule += " حامل القنبلة الأول: " + event.bomb_starter_name + ".";
+      }
+      if (event.id === "temporary_king" && event.king_name) {
+        rule += " الملك الحالي: " + event.king_name + ".";
+      }
+      setTextById(
+        "eventRule",
+        rule + " لديك 20 ثانية. قرارات الجميع سرية حتى ينتهي الحدث."
+      );
+      fillTargets(byId("eventTarget"), state.players || [], null, true);
+
+      var submitted = !!state.private.event_submitted;
+      var myCoins = 0;
+      for (var coinIndex = 0; coinIndex < state.players.length; coinIndex += 1) {
+        if (player && state.players[coinIndex].id === player.id) {
+          myCoins = state.players[coinIndex].coins;
+          break;
+        }
+      }
+      var amountOptions = byId("eventAmount").options;
+      for (var amountIndex = 0; amountIndex < amountOptions.length; amountIndex += 1) {
+        amountOptions[amountIndex].disabled =
+          parseInt(amountOptions[amountIndex].value, 10) > myCoins;
+      }
+      syncEventFields();
+      byId("eventChoice").disabled = submitted;
+      byId("eventTarget").disabled = submitted;
+      byId("eventAmount").disabled = submitted;
+      byId("eventSubmit").disabled = submitted;
+      setNotice(
+        "eventStatus",
+        submitted
+          ? "وصل قرارك السري. انتظر بقية اللاعبين؛ لن يظهر اختيارك لهم الآن."
+          : "تم تسجيل " + state.event_submitted_count + " من " +
+            state.event_submit_total + " قرارات.",
+        submitted ? "good" : ""
+      );
+    } else {
+      byId("eventChoice").disabled = true;
+      byId("eventTarget").disabled = true;
+      byId("eventAmount").disabled = true;
+      byId("eventSubmit").disabled = true;
+    }
+
+    var outcome = state.event_result;
+    if (outcome) {
+      setTextById("eventResultTitle", event.title || "نتيجة الحدث");
+      setTextById("eventResultDescription", outcome.description || "انتهى الحدث وتم تطبيق أثره.");
+      var rows = byId("eventResultRows");
+      while (rows.firstChild) {
+        rows.removeChild(rows.firstChild);
+      }
+
+      if (outcome.event_id === "black_box" || outcome.event_id === "secret_auction") {
+        var entries = outcome.entries || [];
+        for (var entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+          var entry = entries[entryIndex];
+          var row = document.createElement("div");
+          row.className = "challenge-result-row";
+          var line = entry.player_name + ": ";
+          if (outcome.event_id === "black_box") {
+            var boxLabels = {
+              bonus: "مكافأة +2 عملتين",
+              shield: "حماية مجانية لهذه الجولة",
+              trap: entry.delta < 0 ? "فخ — خسر عملة" : "فخ — لا يوجد رصيد لخصمه",
+              "لم يختر صندوقًا": "لم يختر صندوقًا قبل انتهاء الوقت"
+            };
+            line += entry.box ? "الصندوق " + entry.box + " — " : "";
+            line += boxLabels[entry.outcome] || entry.outcome;
+          } else {
+            line += "عرض " + entry.bid + " عملات.";
+          }
+          setText(row, line);
+          rows.appendChild(row);
+        }
+      } else if (outcome.event_id === "bomb") {
+        var pathRow = document.createElement("div");
+        pathRow.className = "challenge-result-row";
+        setText(pathRow, "مسار القنبلة: " + (outcome.path_names || []).join(" ← "));
+        rows.appendChild(pathRow);
+      } else if (outcome.event_id === "court") {
+        var voteCounts = outcome.vote_counts || [];
+        for (var voteIndex = 0; voteIndex < voteCounts.length; voteIndex += 1) {
+          var voteRow = document.createElement("div");
+          voteRow.className = "challenge-result-row";
+          setText(voteRow, voteCounts[voteIndex].player_name + ": " +
+            voteCounts[voteIndex].votes + " أصوات");
+          rows.appendChild(voteRow);
+        }
+        var voteEntries = outcome.entries || [];
+        for (var ballotIndex = 0; ballotIndex < voteEntries.length; ballotIndex += 1) {
+          var ballotRow = document.createElement("div");
+          ballotRow.className = "challenge-result-row";
+          setText(ballotRow, voteEntries[ballotIndex].player_name +
+            " صوّت على: " + voteEntries[ballotIndex].vote_name);
+          rows.appendChild(ballotRow);
+        }
+      } else if (outcome.event_id === "temporary_king") {
+        var kingRow = document.createElement("div");
+        kingRow.className = "challenge-result-row success";
+        setText(kingRow, outcome.king_name + " حصل على عملة التاج والحماية المجانية.");
+        rows.appendChild(kingRow);
+      }
+      if (outcome.shield_names && outcome.shield_names.length) {
+        var shieldRow = document.createElement("div");
+        shieldRow.className = "challenge-result-row success";
+        setText(shieldRow, "حماية مجانية: " + outcome.shield_names.join("، "));
+        rows.appendChild(shieldRow);
+      }
+    }
+  }
+
+  function submitEvent() {
+    if (!room || mutationBusy || !match || match.phase !== "event" ||
+        match.private.event_submitted) {
+      return;
+    }
+    var eventId = match.round_event.id;
+    var choice = byId("eventChoice").value;
+    if (!choice) {
+      setNotice("eventStatus", "اختر قرارك أولًا.", "bad");
+      return;
+    }
+    var body = {
+      request_id: makeRequestId(),
+      choice_type: choice,
+      amount: 0
+    };
+    if (eventId === "black_box") {
+      body.choice_type = "box";
+      body.choice_value = parseInt(choice, 10);
+    } else if (eventId === "bomb" && choice === "pass") {
+      body.target_player_id = byId("eventTarget").value;
+      if (!body.target_player_id) {
+        setNotice("eventStatus", "اختر اللاعب الذي ستمرر إليه القنبلة.", "bad");
+        return;
+      }
+    } else if (eventId === "secret_auction") {
+      body.amount = parseInt(byId("eventAmount").value, 10);
+    } else if (eventId === "court" && choice === "vote") {
+      body.target_player_id = byId("eventTarget").value;
+      if (!body.target_player_id) {
+        setNotice("eventStatus", "اختر لاعبًا آخر للتصويت عليه.", "bad");
+        return;
+      }
+    }
+
+    mutationBusy = true;
+    byId("eventSubmit").disabled = true;
+    setNotice("eventStatus", "جارٍ حفظ قرارك السري...", "");
+    request("POST", "/api/rooms/" + encodeURIComponent(room.code) + "/match/event", body,
+      function (payload, status) {
+        mutationBusy = false;
+        if (status === 200 && payload.ok) {
+          renderMatch(payload);
+        } else {
+          byId("eventSubmit").disabled = false;
+          setNotice("eventStatus", payload.error || "تعذر حفظ قرار الحدث.", "bad");
+        }
+        scheduleMatchPoll();
+      }
+    );
+  }
+
   function renderRoundFlow(state) {
     var phase = state.phase;
+    var eventId = state.round_event ? state.round_event.id : "opening";
+    var hasInteractiveEvent = (
+      eventId === "black_box" || eventId === "bomb" ||
+      eventId === "secret_auction" || eventId === "court"
+    );
     var currentStep = phase === "challenge" ? 0 :
-      (phase === "actions" ? 1 :
-      (phase === "revenge" ? 3 :
-      (phase === "result" ? 4 : 5)));
+      (phase === "event" ? 1 :
+      (phase === "actions" ? 2 :
+      (phase === "revenge" ? 4 :
+      (phase === "result" ? 5 : 6))));
     var ids = [
-      "flowChallenge", "flowAction", "flowReveal", "flowRevenge", "flowResult"
+      "flowChallenge", "flowEvent", "flowAction", "flowReveal", "flowRevenge", "flowResult"
     ];
     var hasRevenge = !!(state.result && state.result.revenge_eligible &&
       Object.keys(state.result.revenge_eligible).length);
     for (var i = 0; i < ids.length; i += 1) {
       var item = byId(ids[i]);
       item.className = "round-flow-step";
-      if (phase === "finished" || i < currentStep) {
-        if (i === 3 &&
+      if (i === 1 && !hasInteractiveEvent && phase !== "challenge") {
+        item.className += " is-skipped";
+      } else if ((phase === "finished" || i < currentStep) && i !== 1) {
+        if (i === 4 &&
             (phase === "result" || phase === "finished") &&
             !hasRevenge) {
           item.className += " is-skipped";
@@ -585,7 +808,7 @@
         }
       } else if (i === currentStep) {
         item.className += " is-current";
-      } else if (i === 3 && phase === "result") {
+      } else if (i === 4 && phase === "result") {
         item.className += " is-skipped";
       }
       if (i === currentStep) {
@@ -600,16 +823,20 @@
       status = "أنت الآن في الخطوة 1: " +
         ((state.challenge && state.challenge.mode_description) ||
           "أجب خلال 25 ثانية. الصحيح يمنحك عملتين.");
+    } else if (phase === "event") {
+      status = "أنت الآن في الخطوة 2: اتخذ قرار حدث الفوضى خلال 20 ثانية. اختيارات الجميع سرية.";
     } else if (phase === "actions") {
-      status = "أنت الآن في الخطوة 2: اختر حركة واحدة خلال 60 ثانية. تم كشف نتيجة السؤال.";
+      status = hasInteractiveEvent
+        ? "أنت الآن في الخطوة 3: اختر حركة واحدة خلال 60 ثانية. تم كشف نتيجة الحدث."
+        : "أنت الآن في الخطوة 3: اختر حركة واحدة خلال 60 ثانية. لا يوجد قرار حدث إضافي هذه الجولة.";
     } else if (phase === "revenge") {
-      status = "أنت الآن في الخطوة 4: من خسر عملات بالسرقة يقرر الانتقام خلال 15 ثانية.";
+      status = "أنت الآن في الخطوة 5: من خسر عملات بالسرقة يقرر الانتقام خلال 15 ثانية.";
     } else if (phase === "result") {
-      status = "أنت الآن في الخطوة 5: تم تحديث الأرصدة. تبدأ الجولة التالية بعد 10 ثوانٍ.";
+      status = "أنت الآن في الخطوة 6: تم تحديث الأرصدة. تبدأ الجولة التالية بعد 10 ثوانٍ.";
     } else if (phase === "finished") {
       status = "انتهت الجولات الثماني. الترتيب والفائز ظاهران أدناه.";
     }
-    if (phase === "result" && !hasRevenge) {
+    if ((phase === "result" || phase === "finished") && !hasRevenge) {
       status += " لا توجد سرقة ناجحة، لذلك تم تجاوز الانتقام.";
     }
     setTextById("roundFlowStatus", status);
@@ -826,13 +1053,14 @@
 
     renderRoundEvent(state.round_event);
     renderChallenge(state.challenge, state.challenge_result, state);
+    renderEventPanel(state);
     show(byId("actionPanel"), state.phase === "actions");
     show(byId("revengePanel"), state.phase === "revenge");
     show(byId("resultPanel"), state.phase === "result" || state.phase === "revenge");
     show(byId("finalPanel"), state.phase === "finished");
 
     if (state.phase === "challenge") {
-      setTextById("phaseTitle", "الخطوة 1 من 5 — " +
+      setTextById("phaseTitle", "الخطوة 1 من 6 — " +
         ((state.challenge && state.challenge.mode_label) || "تحدي الجولة"));
       setTextById(
         "phaseDescription",
@@ -845,8 +1073,22 @@
           state.challenge_answer_total + " لاعبين إجاباتهم.",
         ""
       );
+    } else if (state.phase === "event") {
+      setTextById("phaseTitle", "الخطوة 2 من 6 — " +
+        ((state.round_event && state.round_event.title) || "حدث الفوضى"));
+      setTextById(
+        "phaseDescription",
+        (state.round_event && state.round_event.description) ||
+          "اتخذ قرارك السري خلال 20 ثانية. لا تظهر قرارات الآخرين قبل الكشف."
+      );
+      setNotice(
+        "matchNotice",
+        "أرسل " + state.event_submitted_count + " من " +
+          state.event_submit_total + " لاعبين قراراتهم.",
+        ""
+      );
     } else if (state.phase === "actions") {
-      setTextById("phaseTitle", "الخطوة 2 من 5 — الحركة السرية");
+      setTextById("phaseTitle", "الخطوة 3 من 6 — الحركة السرية");
       setTextById("phaseDescription", "لديك 60 ثانية لاختيار حركة واحدة: سرقة لاعب، أو حماية نفسك، أو رهان من 1 إلى 3 عملات، أو تمرير. لن يرى أحد اختيارك حتى يكشف الخادم اختيارات الجميع معًا.");
       fillTargets(byId("actionTarget"), state.players || [], null, true);
       var actionLocked = !!state.private.action_submitted;
@@ -1076,6 +1318,8 @@
   byId("rematchButton").onclick = startMatch;
   byId("rulesToggle").onclick = toggleRules;
   byId("challengeSubmit").onclick = submitChallenge;
+  byId("eventSubmit").onclick = submitEvent;
+  byId("eventChoice").onchange = syncEventFields;
   byId("roomCode").onkeyup = function () {
     this.value = this.value.toUpperCase();
   };
