@@ -461,7 +461,7 @@
 
   function toggleRules() {
     var panel = byId("rulesPanel");
-    var isHidden = /\\bhidden\\b/.test(panel.className);
+    var isHidden = /\bhidden\b/.test(panel.className);
     show(panel, isHidden);
     byId("rulesToggle").setAttribute("aria-expanded", isHidden ? "true" : "false");
     setTextById("rulesToggle", isHidden ? "إخفاء شرح الحركات" : "شرح الحركات — اضغط هنا");
