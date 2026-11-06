@@ -472,7 +472,20 @@
       }
       setTextById("challengeTitle", challenge.title);
       setTextById("challengeFamily", challenge.family);
+      setTextById("challengeMode", challenge.mode_label || "تحدّي معلومات");
+      setTextById(
+        "challengeModeHelp",
+        challenge.mode_description || "أجب عن السؤال. ستظهر نتيجة التحدي للجميع بعد انتهاء الإجابات."
+      );
       setTextById("challengePrompt", challenge.prompt);
+      var isDuel = challenge.mode === "duel";
+      show(byId("challengeOpponent"), isDuel);
+      setTextById(
+        "challengeOpponent",
+        isDuel
+          ? "خصمك في هذه المواجهة: " + (challenge.duel_opponent || "اللاعب المقابل")
+          : ""
+      );
     }
 
     if (active) {
@@ -493,15 +506,42 @@
     }
 
     if (result) {
-      setTextById(
-        "challengeCorrectAnswer",
-        "الإجابة الصحيحة: " + result.correct_answer + " — مكافأة الإجابة الصحيحة: " + result.reward + " عملتين"
-      );
+      var revealTitle = result.mode === "duel"
+        ? "نتيجة المواجهة — الإجابة الصحيحة: " + result.correct_answer
+        : (result.mode === "prediction"
+          ? "نتيجة التوقع — المجموع الصحيح: " + result.correct_answer
+          : (result.mode === "bluff"
+            ? "انكشفت الكذبة — الاختيار الصحيح: " + result.correct_answer
+            : "الإجابة الصحيحة: " + result.correct_answer));
+      setTextById("challengeCorrectAnswer", revealTitle);
       setTextById("challengeExplanation", result.explanation || "");
       var holder = byId("challengeResults");
       while (holder.firstChild) {
         holder.removeChild(holder.firstChild);
       }
+      var duelHolder = byId("challengeDuelResults");
+      while (duelHolder.firstChild) {
+        duelHolder.removeChild(duelHolder.firstChild);
+      }
+      var duels = result.duel_results || [];
+      show(duelHolder, duels.length > 0);
+      for (var duelIndex = 0; duelIndex < duels.length; duelIndex += 1) {
+        var duel = duels[duelIndex];
+        var duelRow = document.createElement("div");
+        duelRow.className = "challenge-duel-row";
+        var duelDescription = "";
+        if (duel.outcome === "first_won" || duel.outcome === "second_won") {
+          duelDescription = duel.winner_name + " فاز بالمواجهة ضد " +
+            duel.opponent_name + " وربح " + duel.reward + " عملات.";
+        } else if (duel.outcome === "both_correct") {
+          duelDescription = "تعادل صحيح! كلا اللاعبين ربح عملتين.";
+        } else {
+          duelDescription = "لم يقدم أي لاعب إجابة صحيحة؛ لا توجد مكافأة في هذه المواجهة.";
+        }
+        setText(duelRow, duelDescription);
+        duelHolder.appendChild(duelRow);
+      }
+
       var answers = result.answers || [];
       for (var answerIndex = 0; answerIndex < answers.length; answerIndex += 1) {
         var answer = answers[answerIndex];
@@ -557,7 +597,9 @@
 
     var status = "تبدأ الجولة بسؤال، ثم اختيار سري، ثم كشف النتائج.";
     if (phase === "challenge") {
-      status = "أنت الآن في الخطوة 1: أجب خلال 25 ثانية. الصحيح يمنحك عملتين.";
+      status = "أنت الآن في الخطوة 1: " +
+        ((state.challenge && state.challenge.mode_description) ||
+          "أجب خلال 25 ثانية. الصحيح يمنحك عملتين.");
     } else if (phase === "actions") {
       status = "أنت الآن في الخطوة 2: اختر حركة واحدة خلال 60 ثانية. تم كشف نتيجة السؤال.";
     } else if (phase === "revenge") {
@@ -790,8 +832,13 @@
     show(byId("finalPanel"), state.phase === "finished");
 
     if (state.phase === "challenge") {
-      setTextById("phaseTitle", "الخطوة 1 من 5 — تحدي الجولة");
-      setTextById("phaseDescription", "لديك 25 ثانية. الإجابة الصحيحة تضيف عملتين إلى رصيدك؛ الإجابة الخاطئة أو عدم الإجابة لا تخصم شيئًا. لا تبدأ الحركات حتى ينتهي السؤال.");
+      setTextById("phaseTitle", "الخطوة 1 من 5 — " +
+        ((state.challenge && state.challenge.mode_label) || "تحدي الجولة"));
+      setTextById(
+        "phaseDescription",
+        (state.challenge && state.challenge.mode_description) ||
+          "لديك 25 ثانية للإجابة. لا تبدأ الحركات حتى ينتهي السؤال."
+      );
       setNotice(
         "matchNotice",
         "أرسل " + state.challenge_answers_submitted + " من " +
