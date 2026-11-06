@@ -12,7 +12,7 @@ import json
 import secrets
 import unicodedata
 import uuid
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence
 
 CHALLENGE_SECONDS = 25
 CHALLENGE_REWARD = 2
