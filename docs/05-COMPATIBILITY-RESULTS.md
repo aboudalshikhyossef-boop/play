@@ -8,7 +8,7 @@ This file distinguishes owner-confirmed physical-device results from automated t
 - Python 3: installed; exact laptop version is not yet recorded.
 - Access path: Cloudflare Quick Tunnel to a localhost-only Python server.
 - Client devices: two Android phones and iPhone 4S / iOS 9.3.6 Safari.
-- Current application: room/lobby foundation, eight-round engine, eight-format generated challenge system with persistent no-repeat history, beginner rules and round roadmap, and five event-card effects. Additional bluff/prediction/duel formats and full visual/audio systems remain in progress.
+- Current application: room/lobby foundation, eight-round engine, generated no-repeat challenge system with quiz, bluff, prediction, and four-player rotating duel modes, beginner rules and round roadmap, and five event-card effects. The larger event catalogue and full visual/audio systems remain in progress.
 
 ## Network history
 
@@ -55,7 +55,7 @@ These checks were run in the development container. They are not a substitute fo
 
 ## Match-engine verification status
 
-The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, generated challenge families and valid answer keys, no repeated question fingerprints across separate matches and engine restarts, migration of previously used legacy questions, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the original match arena and controls worked across the connected phones, including the iPhone 4S. The generated question panel, answer-reveal screen, and five-step round roadmap are newer and remain pending physical acceptance.
+The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, generated challenge families and valid answer keys, no repeated question fingerprints across separate matches and engine restarts, migration of previously used legacy questions, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the original match arena and controls worked across the connected phones, including the iPhone 4S. The generated challenge panel, bluff/prediction modes, duel opponent banner, answer-reveal screen, and five-step round roadmap are newer and remain pending physical acceptance.
 
 ## Required acceptance criteria
 
