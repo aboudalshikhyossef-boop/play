@@ -364,6 +364,8 @@ class GameStore:
             session = self._touch_session(db, token)
             if session["invite_code"] != code:
                 raise Unauthorized("هذه الجلسة لا تنتمي إلى الغرفة المطلوبة.")
+            if _has_active_match(db, session["room_id"]):
+                raise RoomNotOpen("لا يمكن تغيير الاستعداد بعد بدء المباراة.")
             db.execute("UPDATE players SET ready = ? WHERE id = ?", (1 if ready else 0, session["player_id"]))
             db.commit()
             player_id = session["player_id"]
