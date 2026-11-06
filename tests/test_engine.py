@@ -43,7 +43,7 @@ class MatchEngineTests(unittest.TestCase):
             self.store.set_ready(created["invite_code"], token, True)
         return created["invite_code"], tokens
 
-    def answer_challenge_for_all(self, code, state):
+    def answer_challenge_for_all(self, code, state, resolve_event=True):
         with closing(self.store._connect()) as db:
             row = db.execute(
                 "SELECT challenge_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
@@ -59,6 +59,29 @@ class MatchEngineTests(unittest.TestCase):
                 "auto-challenge-r%02d-p%d" % (state["round"], index + 1),
                 wrong_index,
             )
+        if resolve_event and state["phase"] == "event":
+            event_id = state["round_event"]["id"]
+            for index, player_id in enumerate(player_ids):
+                if event_id == "black_box":
+                    state = self.engine.submit_event(
+                        code, player_id, "auto-box-%02d-p%d" % (state["round"], index),
+                        "box", choice_value=0,
+                    )
+                elif event_id == "bomb":
+                    state = self.engine.submit_event(
+                        code, player_id, "auto-bomb-%02d-p%d" % (state["round"], index),
+                        "keep",
+                    )
+                elif event_id == "secret_auction":
+                    state = self.engine.submit_event(
+                        code, player_id, "auto-bid-%02d-p%d" % (state["round"], index),
+                        "bid", amount=0,
+                    )
+                elif event_id == "court":
+                    state = self.engine.submit_event(
+                        code, player_id, "auto-court-%02d-p%d" % (state["round"], index),
+                        "abstain",
+                    )
         return state
 
     def start(self, count=3):
@@ -80,7 +103,7 @@ class MatchEngineTests(unittest.TestCase):
         player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
         state = self.engine.start_match(code, player_ids[0])
         self.set_round_event_payload(state["match_id"], state["round"], event)
-        state = self.answer_challenge_for_all(code, state)
+        state = self.answer_challenge_for_all(code, state, resolve_event=False)
         return code, tokens, player_ids, state
 
     def set_round_event(self, match_id, round_no, event_id):
@@ -761,6 +784,7 @@ class MatchEngineTests(unittest.TestCase):
         state = self.engine.submit_event(
             code, ids[1], "bomb-loop-0002", "pass", target_player_id=ids[0]
         )
+        state = self.engine.submit_event(code, ids[2], "bomb-loop-keep3", "keep")
         self.assertEqual(state["event_result"]["final_holder_name"], "Player 2")
         self.assertEqual(state["players"][1]["coins"], 8)
         self.assertEqual(state["players"][0]["coins"], 10)
@@ -840,7 +864,8 @@ class MatchEngineTests(unittest.TestCase):
         self.assertEqual(state["phase"], "actions")
         self.assertEqual(state["event_result"]["king_name"], "Player 2")
         self.assertEqual(state["players"][1]["coins"], 4)
-        self.assertTrue(state["private"]["is_temporary_king"])
+        king_view = self.engine.get_state(code, ids[1])
+        self.assertTrue(king_view["private"]["is_temporary_king"])
         self.assertFalse(self.engine.get_state(code, ids[0])["private"]["is_temporary_king"])
 
         state = self.engine.submit_action(code, ids[0], "king-target-001", "steal", ids[1])
@@ -876,8 +901,14 @@ class MatchEngineTests(unittest.TestCase):
                     db, state["match_id"], 3, "opening"
                 )
             db.commit()
-        self.assertEqual(first["king_player_id"], player_ids[0])
-        self.assertEqual(second["king_player_id"], player_ids[1])
+        with closing(self.store._connect()) as db:
+            seats = db.execute(
+                "SELECT player_id, seat FROM match_players WHERE match_id = ?",
+                (state["match_id"],),
+            ).fetchall()
+        seat_map = {row["seat"]: row["player_id"] for row in seats}
+        self.assertEqual(first["king_player_id"], seat_map[1])
+        self.assertEqual(second["king_player_id"], seat_map[2])
 
     def test_event_timeout_uses_safe_defaults_and_opens_actions(self):
         event = dict(
