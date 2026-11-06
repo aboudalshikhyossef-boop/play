@@ -1310,8 +1310,17 @@ class MatchEngine:
         round_no = match["round_no"]
         event = self._round_event(db, match_id, round_no)
         event_id = event["id"]
-        guard_cost = 0 if event_id == "free_guard" else GUARD_COST
-        steal_limit = MAX_STEAL + 1 if event_id == "market_rush" else MAX_STEAL
+        event_result_row = db.execute(
+            "SELECT event_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+            (match_id, round_no),
+        ).fetchone()
+        event_result = self._json_load(
+            event_result_row["event_result_json"] if event_result_row else None, {}
+        )
+        king_id = event.get("king_player_id") if event_id == "temporary_king" else None
+        event_shields = event_result.get("shield_player_ids", [])
+        if not isinstance(event_shields, list):
+            event_shields = []
         self._insert_timeout_passes(db, match, now)
 
         players = db.execute(
@@ -1328,7 +1337,11 @@ class MatchEngine:
         ).fetchall()
 
         balances = {player_id: row["coins"] for player_id, row in player_map.items()}
-        guarded = set()
+        guarded = {
+            player_id for player_id in event_shields if player_id in player_map
+        }
+        if king_id in player_map:
+            guarded.add(king_id)
         public_actions = []
         blocked_attacks = []
         wager_results = []
@@ -1338,10 +1351,19 @@ class MatchEngine:
         for action in actions:
             if action["action_type"] == "guard":
                 player_id = action["player_id"]
-                if balances[player_id] >= guard_cost:
-                    balances[player_id] -= guard_cost
+                if player_id in guarded:
+                    continue
+                player_guard_cost = (
+                    0 if event_id == "free_guard" or player_id == king_id else GUARD_COST
+                )
+                if balances[player_id] >= player_guard_cost:
+                    balances[player_id] -= player_guard_cost
                     guarded.add(player_id)
-                    self._append_ledger(db, match_id, round_no, player_id, -guard_cost, "guard_cost", now=now)
+                    if player_guard_cost:
+                        self._append_ledger(
+                            db, match_id, round_no, player_id, -player_guard_cost,
+                            "guard_cost", now=now,
+                        )
 
         for action in actions:
             if action["action_type"] != "wager":
@@ -1385,7 +1407,10 @@ class MatchEngine:
                 })
                 continue
 
-            stolen = min(steal_limit, balances[target_id])
+            attacker_steal_limit = MAX_STEAL + 1 if (
+                event_id == "market_rush" or attacker_id == king_id
+            ) else MAX_STEAL
+            stolen = min(attacker_steal_limit, balances[target_id])
             if stolen <= 0:
                 blocked_attacks.append({
                     "attacker_id": attacker_id,
@@ -1464,7 +1489,8 @@ class MatchEngine:
                 })
 
         result = {
-            "event": event,
+            "event": self._public_round_event(event, players),
+            "event_result": self._public_event_result(event_result, players),
             "actions": public_actions,
             "thefts": thefts,
             "blocked_attacks": blocked_attacks,
