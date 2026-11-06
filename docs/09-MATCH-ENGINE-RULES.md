@@ -17,14 +17,15 @@ Every player is equal. Creating the room does not grant a host role, extra power
 
 ## Round phases
 
-1. **Family challenge — 25 seconds.** All players receive the same multiple-choice question and submit one answer privately. A correct answer earns 2 coins; a wrong or missing answer earns 0 and never deducts coins. No speed bonus is used, so every correct player receives the same reward. The server reveals all answers together when everyone has answered or the deadline expires.
-2. **Secret actions — 60 seconds.** Each player chooses exactly one action after the challenge reveal. The chosen action, target, and wager amount are private until action reveal. The server locks the first accepted choice. The same request ID and same payload can safely be retried; a different second choice is rejected.
-3. **Reveal and resolution.** Once all current players submit, the server reveals all action choices together and resolves them in seat order using a deterministic rule order. If time expires, missing choices become pass.
-4. **Revenge — 15 seconds, only when an actual theft succeeded.** Each player who lost coins to a successful thief may choose one eligible thief or pass. The action is limited by the player's remaining revenge charges. Missing revenge choices become pass when the deadline expires.
-5. **Round result — 10 seconds.** All players see the same public result and updated balances. The server begins the next round when the result deadline elapses.
-6. **Match finished.** After the eighth result window, the server finalizes the ranking. The room may start a new match when three or four players are again present, connected, and ready.
+1. **Family challenge — 25 seconds.** All players receive the same generated challenge and submit one answer privately. Correct answers earn their mode-specific reward; wrong or missing answers never deduct coins. The server reveals all answers together when everyone has answered or the deadline expires.
+2. **Chaos event decision — 20 seconds when required.** Black Box, Bomb, Secret Auction, and Court ask each player for one secret decision. Temporary King is applied automatically after the challenge; standard modifier cards are applied during action resolution. The server applies safe defaults to missing interactive decisions when the deadline expires. Event choices remain hidden until everyone submits or the deadline expires.
+3. **Secret actions — 60 seconds.** Each player chooses exactly one action after the challenge and any interactive event have resolved. The chosen action, target, and wager amount are private until action reveal. The server locks the first accepted choice. The same request ID and same payload can safely be retried; a different second choice is rejected.
+4. **Reveal and resolution.** Once all current players submit, the server reveals all action choices together and resolves them in seat order using a deterministic rule order. If time expires, missing choices become pass.
+5. **Revenge — 15 seconds, only when an actual theft succeeded.** Each player who lost coins to a successful thief may choose one eligible thief or pass. The action is limited by the player's remaining revenge charges. Missing revenge choices become pass when the deadline expires.
+6. **Round result — 10 seconds.** All players see the same public result and updated balances. The server begins the next round when the result deadline elapses.
+7. **Match finished.** After the eighth result window, the server finalizes the ranking. The room may start a new match when three or four players are again present, connected, and ready.
 
-The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted. A visible five-step roadmap stays on the match screen and marks the current step, completed steps, and the conditional revenge step that was skipped when no theft succeeded.
+The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted. A visible six-step roadmap marks the challenge, optional event decision, secret action, reveal, conditional revenge, and result. Events that resolve automatically or do not need an interactive choice are marked complete or skipped rather than showing a false waiting step.
 
 ## Generated family challenge system
 
@@ -64,8 +65,13 @@ Round one is intentionally a teaching round with the base rules. Starting in rou
 | مكافأة على الجرأة | Each successful thief receives 1 extra coin from the game bank. The victim loses only the normal stolen amount. The bonus is written to the coin ledger. |
 | ردّ الصاع مضاعفًا | A successful counterstrike transfers up to 2 coins instead of 1, but still consumes only one of the player's two match-long revenge charges. |
 | رهان عالي المخاطرة | The chance remains 50/50. A winning wager gives net profit of twice the stake; a losing wager still removes only the original stake. |
+| الصندوق الأسود | Each player secretly chooses box 1, 2, or 3. The three hidden contents are one +2 coin bonus, one free shield against all steals this round, and one trap that removes 1 coin (or no coins from a zero balance). A player may also skip. |
+| القنبلة المتنقلة | The server selects a starting carrier. All players privately choose keep or pass to another player. The server follows the chain from the starting carrier; the last holder loses up to 2 coins. If a pass returns to a player already visited, the bomb explodes with the last holder before the loop. |
+| الملك المؤقت | After challenge rewards are applied, the player with the lowest balance is crowned; rotating seat priority breaks ties. The king gains +1 coin from the game bank, is protected for the round at no cost, and may steal up to 3 coins. The crown expires after this round. |
+| المزاد السري | Each player bids 0–3 coins, limited by their balance. The highest positive bid wins a free shield and is transferred to the game bank. Rotating seat priority breaks ties; all-zero bids mean no winner. |
+| المحكمة | Each player secretly votes for another player or abstains. A player needs more than half of all players' votes to be convicted and lose 1 coin to the game bank. Self-votes are invalid; a tie or lack of an absolute majority dismisses the case. |
 
-Event selection and effect resolution are server-authoritative. The client only displays the event and adjusts its labels; it cannot choose an event or report a different outcome.
+All event choices are stored in `event_actions` and resolved by the server. The browser receives only the public event instructions and its own submitted flag before reveal. Hidden box contents, individual bids, votes, and bomb decisions are not exposed until the shared event result is stored. Event outcomes and all coin changes are persisted in the match-round record and coin ledger.
 
 ## Secret actions in the current engine
 
@@ -132,6 +138,6 @@ A completed match remains recorded. Starting a rematch creates a new match ID an
 
 ## Implemented scope and remaining game design
 
-The engine now supports eight rounds, dynamically generated challenges from eight question formats, permanent no-repeat history across matches and server restarts, migration of previously used fixed-deck questions, private challenge submissions and shared scoring, the four core secret actions, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide and a five-step round roadmap showing exactly what happens and when.
+The engine now supports eight rounds, dynamically generated challenges from eight question formats and four challenge modes, permanent no-repeat history across matches and server restarts, private challenge submissions, all ten round modifiers/events (five passive modifiers and five large events), server-resolved Black Box/Bomb/Temporary King/Auction/Court mechanics, private event choices, event timeouts/defaults, secret actions, revenge, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide and a six-step roadmap that shows the optional event decision phase and its timing.
 
-The remaining game scope includes more varied mini-game formats beyond the current four challenge modes, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
+Remaining work includes additional mini-game formats beyond the implemented challenges, the larger Chaos event concept, comeback balancing, final match statistics, and the polished sound/effects layer. These will be integrated into the same server-authoritative state machine.
