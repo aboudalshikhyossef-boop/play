@@ -44,7 +44,7 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 ## Automated checks run during development
 
-The repository test suite now contains 48 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest CI run for these changes will be recorded after it completes.
+The repository test suite now contains 48 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest GitHub Actions run passed: [run 62 — all 48 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42263709312).
 
 Local checks also include:
 - Python compileall.
