@@ -1,4 +1,5 @@
 import concurrent.futures
+from contextlib import closing
 import tempfile
 import time
 import unittest
@@ -119,7 +120,7 @@ class GameStoreTests(unittest.TestCase):
         for token in tokens:
             room = self.store.set_ready(created["invite_code"], token, True)
         self.assertTrue(room["all_ready"])
-        with self.store._connect() as db:
+        with closing(self.store._connect()) as db:
             db.execute(
                 "UPDATE players SET last_seen = ? WHERE seat = 4",
                 (int(time.time()) - 60,),
