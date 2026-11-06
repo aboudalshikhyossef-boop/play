@@ -590,3 +590,95 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   .challenge-prompt { font-size: 14px; }
   .challenge-summary { padding: 11px; }
 }
+
+
+/* Always-visible round roadmap: current step, completed steps and conditional revenge. */
+.round-flow {
+  margin: 12px 0 14px;
+  padding: 13px;
+  border: 1px solid #3d4965;
+  border-radius: 13px;
+  background: #1b2133;
+}
+.round-flow-heading {
+  margin-bottom: 9px;
+  color: #f2f4fb;
+  line-height: 1.75;
+}
+.round-flow-heading strong {
+  display: block;
+  color: #d7c9ff;
+  font-size: 14px;
+}
+.round-flow-heading span {
+  display: block;
+  margin-top: 2px;
+  color: #b9c4dc;
+  font-size: 12px;
+}
+.round-flow-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  margin-top: 7px;
+  padding: 9px 10px;
+  border: 1px solid #343e57;
+  border-radius: 9px;
+  background: #222a3e;
+  color: #c5cde0;
+}
+.round-flow-number {
+  display: inline-block;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  margin-left: 9px;
+  border: 1px solid #616d89;
+  border-radius: 50%;
+  color: #d5dcef;
+  line-height: 23px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+.round-flow-step strong {
+  display: block;
+  color: #e1e6f2;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.round-flow-step p {
+  margin: 2px 0 0;
+  color: #aeb9d0;
+  font-size: 11px;
+  line-height: 1.75;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.round-flow-step.is-current {
+  border-color: #a58bdc;
+  background: #302b48;
+}
+.round-flow-step.is-current .round-flow-number {
+  border-color: #c9b1ff;
+  color: #fff;
+  background: #65518f;
+}
+.round-flow-step.is-current strong { color: #fff0c5; }
+.round-flow-step.is-complete {
+  border-color: #3f756c;
+  background: #1e302f;
+}
+.round-flow-step.is-complete .round-flow-number {
+  border-color: #6aa99a;
+  color: #b8efdf;
+}
+.round-flow-step.is-skipped {
+  opacity: .66;
+  border-style: dashed;
+}
+@media screen and (max-width: 360px) {
+  .round-flow { padding: 10px; }
+  .round-flow-step { padding: 8px; }
+  .round-flow-step p { font-size: 10px; }
+}
