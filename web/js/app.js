@@ -442,7 +442,14 @@
       addOption(select, players[i].id, "المقعد " + players[i].seat + " — " + players[i].name);
     }
     if (previousValue) {
-      select.value = previousValue;
+      var canRestore = false;
+      for (var optionIndex = 0; optionIndex < select.options.length; optionIndex += 1) {
+        if (select.options[optionIndex].value === previousValue) {
+          canRestore = true;
+          break;
+        }
+      }
+      select.value = canRestore ? previousValue : "";
     }
   }
 
