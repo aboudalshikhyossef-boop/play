@@ -16,6 +16,26 @@ from typing import Any, Dict, List, Sequence
 
 CHALLENGE_SECONDS = 25
 CHALLENGE_REWARD = 2
+DUEL_WIN_REWARD = 3
+
+MODE_DETAILS = {
+    "quiz": {
+        "label": "تحدّي معلومات",
+        "description": "أجب عن السؤال. كل إجابة صحيحة تمنحك عملتين إضافيتين.",
+    },
+    "bluff": {
+        "label": "اكتشف الكذبة",
+        "description": "أمامك ثلاث معادلات؛ اثنتان صحيحتان وواحدة مزيفة. اكتشف المعادلة الخاطئة لتحصل على عملتين.",
+    },
+    "prediction": {
+        "label": "توقّع النرد",
+        "description": "توقّع مجموع نردين قبل كشف النتيجة. الاختيار الصحيح يمنحك عملتين؛ هذا تحدٍّ للحظ.",
+    },
+    "duel": {
+        "label": "مواجهة ثنائية",
+        "description": "تواجه لاعبًا واحدًا. إذا كنت الوحيد الذي أجاب صحيحًا تكسب 3 عملات؛ إذا أصبتما معًا تكسبان عملتين لكل منكما؛ ولا خصم عند الخطأ.",
+    },
+}
 
 # Kept only so an existing SQLite database can import old prompts into the
 # permanent no-repeat history when the engine is upgraded.
@@ -162,14 +182,21 @@ def _make_challenge(
     options: Sequence[str],
     correct_answer: str,
     explanation: str,
+    mode: str = "quiz",
 ) -> Dict[str, Any]:
     values = list(options)
     if len(values) < 3 or len(set(values)) != len(values):
         raise ValueError("Challenge options must contain at least three unique values.")
     if correct_answer not in values:
         raise ValueError("Correct answer must be one of the displayed options.")
+    if mode not in MODE_DETAILS:
+        raise ValueError("Unknown challenge mode: %s" % mode)
+    mode_details = MODE_DETAILS[mode]
     return {
         "id": "generated-" + uuid.uuid4().hex,
+        "mode": mode,
+        "mode_label": mode_details["label"],
+        "mode_description": mode_details["description"],
         "family": family,
         "title": title,
         "prompt": prompt,
@@ -288,7 +315,90 @@ def _comparison() -> Dict[str, Any]:
     )
 
 
-_GENERATORS = (
+def _bluff() -> Dict[str, Any]:
+    equations = []
+    false_index = secrets.randbelow(3)
+    for index in range(3):
+        left, right = _random_int(7, 55), _random_int(6, 48)
+        answer = left + right
+        shown = answer
+        if index == false_index:
+            shown += _random_int(2, 9)
+        equations.append({
+            "left": left,
+            "right": right,
+            "shown": shown,
+            "correct": answer,
+        })
+
+    statements = [
+        "%d + %d = %d" % (item["left"], item["right"], item["shown"])
+        for item in equations
+    ]
+    options = ["المعادلة الأولى", "المعادلة الثانية", "المعادلة الثالثة"]
+    return _make_challenge(
+        "خداع وتركيز",
+        "اكتشف المعادلة المزيفة",
+        "اثنتان من هذه المعادلات صحيحتان وواحدة خاطئة. أي واحدة هي الكذبة؟\n"
+        + "\n".join(
+            "%d) %s" % (index + 1, statement)
+            for index, statement in enumerate(statements)
+        ),
+        options,
+        options[false_index],
+        "المعادلة الخاطئة هي: %d + %d = %d، والصحيح هو %d + %d = %d." % (
+            equations[false_index]["left"],
+            equations[false_index]["right"],
+            equations[false_index]["shown"],
+            equations[false_index]["left"],
+            equations[false_index]["right"],
+            equations[false_index]["correct"],
+        ),
+        mode="bluff",
+    )
+
+
+def _prediction() -> Dict[str, Any]:
+    first_die, second_die = _random_int(1, 6), _random_int(1, 6)
+    total = first_die + second_die
+    distractors = []
+    for candidate in (total - 2, total + 2, total - 1, total + 1):
+        if 2 <= candidate <= 12 and candidate != total and candidate not in distractors:
+            distractors.append(candidate)
+        if len(distractors) == 2:
+            break
+    while len(distractors) < 2:
+        candidate = _random_int(2, 12)
+        if candidate != total and candidate not in distractors:
+            distractors.append(candidate)
+    options = [str(total)] + [str(value) for value in distractors]
+    secrets.SystemRandom().shuffle(options)
+    return _make_challenge(
+        "توقّع وحظ",
+        "توقّع مجموع النرد",
+        "جهّز الخادم رمية نردين من 1 إلى 6. توقّع مجموع النردين قبل كشفهما.",
+        options,
+        str(total),
+        "كانت النردتان %d و%d؛ ومجموعهما %d." % (first_die, second_die, total),
+        mode="prediction",
+    )
+
+
+def _duel() -> Dict[str, Any]:
+    challenge = _addition()
+    challenge["mode"] = "duel"
+    challenge["mode_label"] = MODE_DETAILS["duel"]["label"]
+    challenge["mode_description"] = MODE_DETAILS["duel"]["description"]
+    challenge["family"] = "مواجهة حسابية"
+    challenge["title"] = "تحدّ وجهًا لوجه"
+    challenge["explanation"] = (
+        "الإجابة الصحيحة تحسم المواجهة. الفائز وحده يحصل على 3 عملات، "
+        "وإذا أصاب اللاعبان يحصل كل واحد على عملتين."
+    )
+    return challenge
+
+
+_BASE_GENERATORS = (
     _addition,
     _subtraction,
     _multiplication,
@@ -299,7 +409,31 @@ _GENERATORS = (
     _comparison,
 )
 
+_MODE_GENERATORS = {
+    "bluff": _bluff,
+    "prediction": _prediction,
+    "duel": _duel,
+}
 
-def generate_challenge() -> Dict[str, Any]:
-    """Create a fresh question from one of several family-friendly formats."""
-    return secrets.choice(_GENERATORS)()
+
+def generate_challenge(player_count: int = 3, mode: str = None) -> Dict[str, Any]:
+    """Generate a family challenge; duels are only available with four players."""
+    if player_count not in (3, 4):
+        raise ValueError("Challenge generation requires three or four players.")
+
+    if mode == "quiz" or mode is None:
+        generators = list(_BASE_GENERATORS)
+        if mode == "quiz":
+            generator = secrets.choice(generators)
+            return generator()
+        generators.extend((_bluff, _prediction))
+        if player_count == 4:
+            generators.append(_duel)
+        return secrets.choice(generators)()
+
+    generator = _MODE_GENERATORS.get(mode)
+    if generator is None:
+        raise ValueError("Unknown challenge mode: %s" % mode)
+    if mode == "duel" and player_count != 4:
+        raise ValueError("A duel challenge requires exactly four players.")
+    return generator()
