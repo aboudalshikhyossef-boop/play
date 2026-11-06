@@ -10,7 +10,7 @@ There are exactly four human players.
 
 | Seat | Device | Role |
 |---|---|---|
-| 1 | Linux Mint laptop | Player and local host |
+| 1 | Linux Mint laptop | Player and authoritative local host |
 | 2 | Android phone | Player |
 | 3 | Android phone | Player |
 | 4 | iPhone 4S / iOS 9.3.6 | Player |
@@ -113,9 +113,10 @@ Randomness is generated on the server. Tests should cover distribution and edge 
 ## 11. Match end and statistics
 At match end, resolve pending effects, calculate final balances and ranking, apply documented tie-breakers, and show the winner and all four standings. Include fun statistics such as coins stolen, successful guards, revenge actions, duels won, and chaos events survived. Offer a rematch without forcing players to re-enter identity details.
 
-## 12. Non-goals
+## 12. Non-goals and hosting boundaries
 - No hacking, cybersecurity, or technical knowledge required from players.
-- No public internet matchmaking.
-- No cloud accounts or services required for local play.
+- No public matchmaking or public player directory.
+- No cloud-hosted game engine or cloud game database; the authoritative server and SQLite file remain on the laptop.
+- The temporary Cloudflare Quick Tunnel is only a network relay to the laptop, not the place where game state is stored or calculated.
 - No player elimination before the match ends.
 - No host-only gameplay powers.
