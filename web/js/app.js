@@ -591,6 +591,7 @@
       }
       if (event.id === "black_box") {
         addOption(choiceSelect, "", "اختر صندوقًا");
+        addOption(choiceSelect, "skip", "أتجاوز اختيار الصندوق");
         addOption(choiceSelect, "0", "الصندوق رقم 1");
         addOption(choiceSelect, "1", "الصندوق رقم 2");
         addOption(choiceSelect, "2", "الصندوق رقم 3");
@@ -741,8 +742,12 @@
       amount: 0
     };
     if (eventId === "black_box") {
-      body.choice_type = "box";
-      body.choice_value = parseInt(choice, 10);
+      if (choice === "skip") {
+        body.choice_type = "skip";
+      } else {
+        body.choice_type = "box";
+        body.choice_value = parseInt(choice, 10);
+      }
     } else if (eventId === "bomb" && choice === "pass") {
       body.target_player_id = byId("eventTarget").value;
       if (!body.target_player_id) {
@@ -1137,8 +1142,8 @@
         "actionStatus",
         actionLocked
           ? "تم قفل اختيارك سرًا. انتظر بقية اللاعبين والكشف الجماعي."
-          : freeGuard
-            ? "اختر حركة واحدة. الحماية مجانية في هذه الجولة؛ راجع بطاقة الفوضى قبل القرار."
+          : (freeGuard || temporaryKing)
+            ? "اختر حركة واحدة. الحماية مجانية لك في هذه الجولة؛ راجع بطاقة الفوضى قبل القرار."
             : "اختر حركة واحدة. السرقة لا تكلف عملات، والحماية تكلف عملة، والمراهنة بين 1 و3.",
         actionLocked ? "good" : ""
       );
