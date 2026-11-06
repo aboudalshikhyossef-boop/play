@@ -562,7 +562,6 @@ class MatchEngine:
                 if first["correct"] and not second["correct"]:
                     first["reward"] = DUEL_WIN_REWARD
                     duel_results.append({
-                        "player_ids": list(pair),
                         "outcome": "first_won",
                         "winner_id": first["player_id"],
                         "winner_name": first["player_name"],
