@@ -17,13 +17,27 @@ Every player is equal. Creating the room does not grant a host role, extra power
 
 ## Round phases
 
-1. **Secret actions — 60 seconds.** Each player chooses exactly one action. The chosen action, target, and wager amount are private until reveal. The server locks the first accepted choice. The same request ID and same payload can safely be retried; a different second choice is rejected.
-2. **Reveal and resolution.** Once all current players submit, the server reveals all choices together and resolves them in seat order using a deterministic rule order. If time expires, missing choices become pass.
-3. **Revenge — 15 seconds, only when an actual theft succeeded.** Each player who lost coins to a successful thief may choose one eligible thief or pass. The action is limited by the player's remaining revenge charges. Missing revenge choices become pass when the deadline expires.
-4. **Round result — 10 seconds.** All players see the same public result and updated balances. The server begins the next round when the result deadline elapses.
-5. **Match finished.** After the eighth result window, the server finalizes the ranking. The room may start a new match when three or four players are again present, connected, and ready.
+1. **Family challenge — 25 seconds.** All players receive the same multiple-choice question and submit one answer privately. A correct answer earns 2 coins; a wrong or missing answer earns 0 and never deducts coins. No speed bonus is used, so every correct player receives the same reward. The server reveals all answers together when everyone has answered or the deadline expires.
+2. **Secret actions — 60 seconds.** Each player chooses exactly one action after the challenge reveal. The chosen action, target, and wager amount are private until action reveal. The server locks the first accepted choice. The same request ID and same payload can safely be retried; a different second choice is rejected.
+3. **Reveal and resolution.** Once all current players submit, the server reveals all action choices together and resolves them in seat order using a deterministic rule order. If time expires, missing choices become pass.
+4. **Revenge — 15 seconds, only when an actual theft succeeded.** Each player who lost coins to a successful thief may choose one eligible thief or pass. The action is limited by the player's remaining revenge charges. Missing revenge choices become pass when the deadline expires.
+5. **Round result — 10 seconds.** All players see the same public result and updated balances. The server begins the next round when the result deadline elapses.
+6. **Match finished.** After the eighth result window, the server finalizes the ranking. The room may start a new match when three or four players are again present, connected, and ready.
 
 The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted.
+
+## Family challenge deck
+
+Each round starts with one short multiple-choice challenge. The current eight-card Arabic deck focuses on accessible arithmetic, pattern recognition, everyday logic, time, and attention questions rather than specialist trivia. The question and options are visible to everyone, but the correct index and submitted answers remain server-private until the shared reveal.
+
+- 25 seconds per challenge.
+- Correct answer: +2 coins, recorded in the coin ledger as `challenge_reward`.
+- Wrong answer or no answer before the deadline: 0 coins; there is no deduction.
+- No speed bonus: all correct answers receive the same reward.
+- One answer per player; the first accepted answer is locked. A matching request ID and payload can be retried safely.
+- The next round does not repeat the immediately previous challenge.
+
+The question content is stored separately in `server/challenges.py`; the authoritative engine scores it. The browser receives only the prompt and options before reveal, not the answer key.
 
 ## Round event cards
 
@@ -85,6 +99,8 @@ Players are not eliminated at zero coins. They can continue to choose actions an
 
 ## Privacy contract
 
+During the challenge phase, each player receives the same prompt and options, plus only their own answer-submitted flag. The correct answer and other players' answers remain hidden until the challenge resolves.
+
 During the secret-action phase, each player receives:
 - Public player names, seats, colors, connection state, and balances.
 - Their own action-submitted flag.
@@ -102,6 +118,6 @@ A completed match remains recorded. Starting a rematch creates a new match ID an
 
 ## Implemented scope and remaining game design
 
-The engine now supports eight rounds, the four core actions above, private submission, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide explaining what coins mean, where coins move, what a wager risks, how protection works, and when revenge is available.
+The engine now supports eight rounds, an eight-question Arabic challenge deck, private challenge submissions and shared scoring, the four core secret actions, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide explaining what coins mean, where coins move, what a wager risks, how protection works, and when revenge is available.
 
 The remaining game scope includes the designed challenge library, additional bluff/trap actions, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
