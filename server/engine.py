@@ -327,11 +327,20 @@ class MatchEngine:
                     (match_id,),
                 ).fetchall()
             ]
-            paired = [player_id for pair in pairs for player_id in pair] if isinstance(pairs, list) else []
+            valid_pairs = (
+                isinstance(pairs, list)
+                and len(pairs) == 2
+                and all(
+                    isinstance(pair, list)
+                    and len(pair) == 2
+                    and all(isinstance(player_id, str) for player_id in pair)
+                    for pair in pairs
+                )
+            )
+            paired = [player_id for pair in pairs for player_id in pair] if valid_pairs else []
             if (
                 len(assigned) != 4
-                or len(pairs or []) != 2
-                or any(not isinstance(pair, list) or len(pair) != 2 for pair in (pairs or []))
+                or not valid_pairs
                 or len(set(paired)) != 4
                 or set(paired) != set(assigned)
             ):
