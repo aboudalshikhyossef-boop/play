@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111326">
+  <title>اختبار توافق CHAOS</title>
+  <style>
+    * {
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+
+    html {
+      width: 100%;
+      min-height: 100%;
+      background: #101221;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 14px;
+      color: #f5f5fa;
+      background: #101221;
+      font-family: Arial, Tahoma, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      width: 100%;
+      margin: 0 0 14px 0;
+      padding: 16px;
+      border: 1px solid #343850;
+      border-radius: 14px;
+      background: #191d32;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      color: #ffffff;
+      font-size: 25px;
+      line-height: 1.3;
+    }
+
+    h2 {
+      margin: 0 0 8px 0;
+      color: #d9c8ff;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+
+    p {
+      margin: 7px 0;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    .muted {
+      color: #c2c5d5;
+      font-size: 14px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #49506d;
+      border-radius: 9px;
+      background: #222842;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    .status.good {
+      border-color: #39866c;
+      background: #18372f;
+    }
+
+    .status.bad {
+      border-color: #a34b5b;
+      background: #40212c;
+    }
+
+    .metric {
+      display: block;
+      margin: 8px 0;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: #222842;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    .button {
+      display: block;
+      width: 100%;
+      min-height: 48px;
+      margin: 10px 0 0 0;
+      padding: 11px 14px;
+      border: 1px solid #9272eb;
+      border-radius: 10px;
+      color: #ffffff;
+      background: #6743c5;
+      font-family: Arial, Tahoma, sans-serif;
+      font-size: 17px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      white-space: normal;
+    }
+
+    .button:active {
+      background: #4e3299;
+    }
+
+    .button.secondary {
+      border-color: #59617f;
+      background: #303852;
+    }
+
+    .field {
+      display: block;
+      width: 100%;
+      min-height: 48px;
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid #626b8c;
+      border-radius: 9px;
+      color: #15172a;
+      background: #ffffff;
+      font-family: Arial, Tahoma, sans-serif;
+      font-size: 16px;
+      text-align: right;
+    }
+
+    .small-note {
+      color: #c2c5d5;
+      font-size: 13px;
+    }
+
+    code {
+      direction: ltr;
+      unicode-bidi: embed;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    @media screen and (min-width: 600px) {
+      body {
+        padding: 24px;
+      }
+
+      .panel {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <h1>CHAOS FAMILY BATTLE</h1>
+      <p>اختبار الاتصال وحجم الشاشة وتوافق المتصفح</p>
+      <p class="muted">هذه صفحة فحص مؤقتة، وليست واجهة اللعبة النهائية.</p>
+      <div id="serverStatus" class="status">جارٍ الاتصال بالخادم المحلي...</div>
+    </div>
+
+    <div class="panel">
+      <h2>1. اختبار أبعاد الهاتف</h2>
+      <div class="metric">عرض نافذة المتصفح: <strong id="viewportWidth">...</strong> CSS px</div>
+      <div class="metric">ارتفاع نافذة المتصفح: <strong id="viewportHeight">...</strong> CSS px</div>
+      <div class="metric">عرض محتوى الصفحة: <strong id="documentWidth">...</strong> CSS px</div>
+      <div class="metric">تكبير الشاشة (DPR): <strong id="pixelRatio">...</strong></div>
+      <div id="layoutStatus" class="status">جارٍ فحص تخطيط الصفحة...</div>
+      <p class="small-note">على iPhone 4S نريد عادةً عرض نافذة قريبًا من 320 CSS px في الوضع العمودي.</p>
+    </div>
+
+    <div class="panel">
+      <h2>2. اختبار اللمس والأزرار</h2>
+      <p>اضغط الزر عدة مرات. يجب أن يستجيب فورًا وألا يكون صغيرًا أو خارج الشاشة.</p>
+      <button id="tapButton" class="button" type="button">اختبار اللمس — اضغط هنا</button>
+      <div class="metric">عدد الضغطات المسجلة: <strong id="tapCount">0</strong></div>
+      <div id="tapStatus" class="status">بانتظار أول ضغطة.</div>
+    </div>
+
+    <div class="panel">
+      <h2>3. اختبار الإرسال إلى Python</h2>
+      <p>اكتب رسالة قصيرة ثم أرسلها. يجب أن يعيد الخادم الرسالة نفسها.</p>
+      <input id="messageInput" class="field" type="text" maxlength="120" value="مرحباً من الهاتف" autocomplete="off">
+      <button id="sendButton" class="button" type="button">إرسال الرسالة إلى اللابتوب</button>
+      <div id="echoStatus" class="status">لم يتم إرسال رسالة بعد.</div>
+    </div>
+
+    <div class="panel">
+      <h2>4. معلومات المتصفح</h2>
+      <p class="muted">سنستخدم هذه المعلومات لتشخيص مشاكل التوافق فقط.</p>
+      <div class="metric">المتصفح: <span id="browserInfo">...</span></div>
+      <div class="metric">اتجاه الشاشة: <span id="orientationInfo">...</span></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    (function () {
+      var tapCount = 0;
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      function setStatus(id, text, state) {
+        var element = byId(id);
+        element.className = "status" + (state ? " " + state : "");
+        element.appendChild(document.createTextNode(""));
+        element.innerHTML = "";
+        element.appendChild(document.createTextNode(text));
+      }
+
+      function updateViewport() {
+        var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        var height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        var docWidth = document.documentElement.clientWidth || document.body.clientWidth;
+        var scrollWidth = document.documentElement.scrollWidth || document.body.scrollWidth;
+        var ratio = window.devicePixelRatio || 1;
+
+        byId("viewportWidth").innerHTML = String(width);
+        byId("viewportHeight").innerHTML = String(height);
+        byId("documentWidth").innerHTML = String(docWidth);
+        byId("pixelRatio").innerHTML = String(ratio);
+
+        if (scrollWidth <= docWidth + 1) {
+          setStatus("layoutStatus", "نجاح مبدئي: لا يوجد تمرير أفقي ظاهر في هذه الصفحة.", "good");
+        } else {
+          setStatus("layoutStatus", "تنبيه: يوجد تجاوز أفقي بمقدار " + (scrollWidth - docWidth) + " CSS px.", "bad");
+        }
+
+        var orientation = width >= height ? "أفقي" : "عمودي";
+        byId("orientationInfo").innerHTML = orientation;
+      }
+
+      function testServer() {
+        var request = new XMLHttpRequest();
+        request.open("GET", "/api/ping", true);
+        request.timeout = 6000;
+
+        request.onreadystatechange = function () {
+          if (request.readyState === 4) {
+            if (request.status === 200) {
+              try {
+                var data = JSON.parse(request.responseText);
+                setStatus("serverStatus", "متصل بالخادم بنجاح. Python " + data.python + " — استجابة الخادم سليمة.", "good");
+              } catch (error) {
+                setStatus("serverStatus", "وصل رد من الخادم، لكن قراءة JSON لم تنجح.", "bad");
+              }
+            } else {
+              setStatus("serverStatus", "تعذر الاتصال بالخادم. رمز الاستجابة: " + request.status, "bad");
+            }
+          }
+        };
+
+        request.ontimeout = function () {
+          setStatus("serverStatus", "انتهت مهلة الاتصال بالخادم.", "bad");
+        };
+
+        request.onerror = function () {
+          setStatus("serverStatus", "فشل الاتصال. تحقق من الشبكة وعنوان اللابتوب.", "bad");
+        };
+
+        request.send(null);
+      }
+
+      byId("tapButton").onclick = function () {
+        tapCount = tapCount + 1;
+        byId("tapCount").innerHTML = String(tapCount);
+        setStatus("tapStatus", "نجاح: تم تسجيل الضغطة رقم " + tapCount + ".", "good");
+      };
+
+      byId("sendButton").onclick = function () {
+        var request = new XMLHttpRequest();
+        var message = byId("messageInput").value;
+        var payload = JSON.stringify({ message: message });
+
+        setStatus("echoStatus", "جارٍ إرسال الرسالة...", "");
+        byId("sendButton").disabled = true;
+
+        request.open("POST", "/api/echo", true);
+        request.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+        request.timeout = 6000;
+
+        request.onreadystatechange = function () {
+          if (request.readyState === 4) {
+            byId("sendButton").disabled = false;
+            if (request.status === 200) {
+              try {
+                var data = JSON.parse(request.responseText);
+                setStatus("echoStatus", "نجاح! استلم اللابتوب الرسالة وأعادها: " + data.received, "good");
+              } catch (error) {
+                setStatus("echoStatus", "وصل رد، لكن تعذرت قراءة محتواه.", "bad");
+              }
+            } else {
+              setStatus("echoStatus", "فشل الإرسال. رمز الاستجابة: " + request.status, "bad");
+            }
+          }
+        };
+
+        request.ontimeout = function () {
+          byId("sendButton").disabled = false;
+          setStatus("echoStatus", "انتهت مهلة إرسال الرسالة.", "bad");
+        };
+
+        request.onerror = function () {
+          byId("sendButton").disabled = false;
+          setStatus("echoStatus", "فشل الاتصال أثناء إرسال الرسالة.", "bad");
+        };
+
+        request.send(payload);
+      };
+
+      var userAgent = navigator.userAgent || "غير معروف";
+      byId("browserInfo").innerHTML = userAgent;
+
+      if (window.addEventListener) {
+        window.addEventListener("resize", updateViewport, false);
+        window.addEventListener("orientationchange", updateViewport, false);
+      }
+
+      updateViewport();
+      testServer();
+    }());
+  </script>
+</body>
+</html>
