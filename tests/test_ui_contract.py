@@ -65,11 +65,23 @@ class LegacyUIContractTests(unittest.TestCase):
         required = {
             "startMatchButton", "gameScreen", "actionPanel", "revengePanel",
             "resultPanel", "finalPanel", "stealAction", "guardAction",
-            "wagerAction", "passAction", "counterstrikeAction", "rematchButton"
+            "wagerAction", "passAction", "counterstrikeAction", "rematchButton",
+            "rulesToggle", "rulesPanel", "roundEventCard", "roundEventTitle",
+            "roundEventDescription", "roundEventEffect"
         }
         self.assertTrue(required.issubset(html_ids))
         self.assertIn("MIN_PLAYERS = 3", self.engine)
         self.assertIn("MAX_PLAYERS = 4", self.engine)
+
+    def test_beginner_rules_and_round_event_ui_are_wired(self):
+        self.assertIn("كل عملة تساوي نقطة", self.html)
+        self.assertIn("فرصة الفوز 50٪", self.html)
+        self.assertIn("اختيارات الجميع تبقى سرية", self.html)
+        self.assertIn("function renderRoundEvent(event)", self.js)
+        self.assertIn('byId("rulesToggle").onclick = toggleRules', self.js)
+        self.assertIn('var isHidden = /\\\\bhidden\\\\b/', self.js)
+        for event_id in ("market_rush", "free_guard", "bounty", "double_revenge", "high_stakes"):
+            self.assertIn(event_id, self.engine)
 
 
 if __name__ == "__main__":
