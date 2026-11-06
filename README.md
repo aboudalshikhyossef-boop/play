@@ -1,91 +1,122 @@
 # CHAOS FAMILY BATTLE
 
-A high-energy browser-based family party game for exactly four players.
+A fast, chaotic browser-based family game for exactly four players.
 
 > Trust no one. Revenge everyone.
 
-## Project status
+## Current project status
 
-The project is in the compatibility and network-foundation stage. The owner has confirmed that a Cloudflare Quick Tunnel URL successfully opened the compatibility page in iPhone 4S Safari 9.3.6. Actual layout measurements and complete four-device checks are still being recorded.
+The network test is complete enough to proceed: the owner confirmed that a Cloudflare Quick Tunnel URL opens on iPhone 4S / iOS 9.3.6 Safari.
 
-## Product principles
+The first real application foundation is now in the repository:
+- One authoritative Python server on the Linux Mint laptop.
+- One SQLite database on that laptop.
+- Four-seat room creation and joining.
+- Separate browser sessions and recovery after refresh.
+- Lobby polling and synchronized player/ready states.
+- A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
+- Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-- Exactly four human players. The Linux Mint laptop is both the authoritative local game host and an ordinary player; it has no gameplay or information advantage.
-- One browser-based application for the laptop, two Android phones, and iPhone 4S (iOS 9.3.6).
-- The game server and SQLite database stay on the Linux Mint laptop.
-- Remote browser access for family sessions uses a temporary Cloudflare Quick Tunnel URL. No Cloudflare account or custom domain is required for Quick Tunnels.
-- The tunnel is a transport path only; it does not host game rules, match state, player balances, or the database.
+**The full match engine is not implemented yet.** The current page creates rooms and synchronizes the lobby. The next major build stage is the actual match/round engine, followed by the complete actions, challenges, events, revenge, scoring, and final results.
+
+## Fixed product requirements
+
+- Exactly four human players.
+- Linux Mint laptop is player 1 and the authoritative server, not a referee or privileged player.
+- Two Android phones and one iPhone 4S running iOS 9.3.6.
 - Arabic-first interface with right-to-left layout.
-- Responsive design is a core requirement. The smallest target is 320 CSS pixels wide.
-- The complete game scope is planned before implementation. Internal milestones are quality gates, not separate public releases.
-- The server is authoritative for actions, timers, randomness, scoring, and outcomes.
+- Minimum supported width: 320 CSS pixels.
+- No clipped text, overlapping elements, hidden controls, or horizontal overflow.
+- Legacy client code uses XMLHttpRequest and avoids Fetch API and CSS Grid.
+- Internal development milestones are quality gates, not separate public game releases.
+
+## Network and data model
+
+The Python server binds to 127.0.0.1:8765. Cloudflare Quick Tunnel publishes a temporary HTTPS URL for the players. All four browsers open that same URL.
+
+Cloudflare is only a transport path. The game rules, room data, sessions, and SQLite database remain on the laptop. There is one shared database, not a separate game copy on every phone.
+
+The default database path is outside the repository:
+
+    ~/.local/share/chaos-family/chaos.sqlite3
+
+No router port forwarding, Wi-Fi hotspot, or public game hosting is required. The laptop and phones need internet access while a Quick Tunnel is active.
+
+## Quick start on Linux Mint
+
+Requirements:
+- Python 3.
+- cloudflared installed and available on PATH.
+- Internet access for the laptop and player devices.
+
+From the repository directory:
+
+    git pull --ff-only
+    python3 --version
+    cloudflared --version
+    bash run_tests.sh
+    bash start_chaos.sh
+
+The launcher starts the local Python server and Cloudflare Quick Tunnel, then prints a temporary URL similar to:
+
+    https://random-words.trycloudflare.com
+
+Keep the terminal open. Open that same URL on the laptop and all three phones.
+
+The first player enters a name and creates a room. The page shows a 10-character room code and a shareable invitation link. The other three players open the same temporary URL, enter their names and the room code, and join. All four seats and their readiness states update automatically.
+
+Press Ctrl+C in the launcher terminal to stop both the tunnel and the local server.
+
+The older command bash start_chaos_lan.sh remains as a compatibility alias. It no longer creates a Wi-Fi hotspot; it launches the same Cloudflare flow.
+
+## Compatibility diagnostics
+
+Open /compatibility on the same temporary URL to test:
+- Screen width and height.
+- Arabic/RTL layout and horizontal overflow.
+- Touch input.
+- A shared message feed.
+
+The old echo test returned a message only to the phone that sent it. The corrected test stores the message in the server's temporary in-memory feed. Open /compatibility on the laptop too; messages submitted from a phone then appear in the laptop's feed and in the server terminal.
+
+The diagnostic feed is not chat and is not stored in the game database.
+
+## Tests
+
+Run the automated suite with:
+
+    bash run_tests.sh
+
+The suite covers:
+- Creating a room and assigning the first seat.
+- Four distinct seats and rejection of a fifth player.
+- Duplicate and invalid names.
+- Ready-state aggregation.
+- Session recovery and revocation on leave.
+- Concurrent join attempts.
+- Shared diagnostic message delivery through the server feed.
+- HTTP API, cookie flags, origin rejection, and rate limits.
+- Static file and health endpoints.
+
+A GitHub Actions workflow also checks Python tests, shell syntax, and JavaScript syntax.
+
+Automated checks do not replace physical testing. The new lobby still needs to be opened on all four actual devices, especially iPhone 4S Safari 9.3.6, with portrait/landscape and touch checks.
+
+## Security notes
+
+The repository is public. Never commit the SQLite database, session cookies/tokens, real room codes, tunnel URLs, logs, or personal player data.
+
+The Quick Tunnel URL is public while active. Anyone who obtains it can reach the exposed service, so the random URL is not authentication. The lobby uses room invite codes and separate Secure, HttpOnly browser sessions. The compatibility message endpoint is a temporary unauthenticated diagnostic route and must not carry private game information.
+
+Quick Tunnels are intended for testing/development and do not provide an uptime guarantee. A long-term deployment needs a separately reviewed hosting/tunnel plan.
 
 ## Documentation
 
-- [Game specification](docs/01-GAME-SPEC.md)
-- [Responsive UX and visual quality](docs/02-RESPONSIVE-UX.md)
-- [Architecture and security](docs/03-ARCHITECTURE-SECURITY.md)
-- [Build and verification plan](docs/04-BUILD-PLAN.md)
-- [Physical-device compatibility results](docs/05-COMPATIBILITY-RESULTS.md)
-- [Superseded hotspot decision](docs/06-HOTSPOT-DECISION.md)
-- [Cloudflare Quick Tunnel decision and operation](docs/07-CLOUDFLARE-QUICK-TUNNEL.md)
-
-## Start the compatibility test
-
-Requirements:
-- Linux Mint 22.3 (the current host environment).
-- Python 3.
-- `cloudflared` installed and available on PATH.
-- An internet connection on the laptop and player devices.
-
-From the repository root:
-
-```bash
-python3 --version
-cloudflared --version
-bash start_chaos.sh
-```
-
-The launcher starts the Python compatibility server on `127.0.0.1:8765`, then starts:
-
-```bash
-cloudflared tunnel --url http://127.0.0.1:8765
-```
-
-It detects and prints the temporary `https://....trycloudflare.com` URL. Share that same URL with all three other players. The laptop player should open the same public URL in the laptop browser so every device uses the same origin.
-
-Keep the terminal open while the tunnel is in use. Press Ctrl+C to stop both the tunnel and the Python server. The launcher does not create or change a Wi-Fi hotspot, router setting, UFW rule, VPN setting, or port-forwarding rule.
-
-The old command name `bash start_chaos_lan.sh` remains as a compatibility alias and now starts the Cloudflare workflow; it no longer creates a laptop Wi-Fi hotspot.
-
-See [the Cloudflare tunnel guide](docs/07-CLOUDFLARE-QUICK-TUNNEL.md) for setup, limitations, and security notes.
-
-## Target environment
-
-- Host: Linux Mint 22.3 laptop.
-- Runtime: Python 3 (installed; record exact version with `python3 --version`).
-- Clients: two Android phones and one iPhone 4S running iOS 9.3.6.
-- Access: Cloudflare Quick Tunnel to a localhost-only origin.
-- Local origin: `http://127.0.0.1:8765/`.
-- Compatibility probe: TCP port 8765.
-
-## Important network and security notes
-
-Quick Tunnels create a public URL. Anyone who obtains the URL can access the exposed local service until the tunnel stops. The random URL is not a substitute for authentication. The current compatibility page contains no private game data; stop the tunnel after testing. Before exposing the full game, implement room invite validation, four-seat limits, high-entropy per-player sessions, server-side action validation, request limits, and reconnect controls.
-
-The game server and SQLite database remain on the laptop. The tunnel does not create a cloud database or synchronize multiple copies of the game. The connection from player browsers to Cloudflare uses HTTPS; cloudflared connects back to the local origin through its outbound tunnel. Do not describe this as end-to-end encryption from the browser to the Python process.
-
-Proton VPN is not changed by the launcher. It does not turn off the VPN or bypass its Kill Switch. If the VPN/Kill Switch prevents cloudflared from reaching Cloudflare, the tunnel will fail rather than changing the VPN configuration.
-
-Quick Tunnels are intended for testing and development, have no uptime guarantee, support up to 200 in-flight requests, and do not support Server-Sent Events (SSE). The planned client synchronization uses XMLHttpRequest polling, not SSE. See the official [Cloudflare Quick Tunnel documentation](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
-
-Never commit temporary tunnel URLs, passwords, real invite codes, player session tokens, database files, or personal player data. The repository is currently public.
-
-## Current gate
-
-- [x] Compatibility page opened on the laptop.
-- [x] Owner confirmed the Cloudflare Quick Tunnel page opened in iPhone 4S Safari 9.3.6.
-- [ ] Confirm the same Quick Tunnel URL on both Android phones.
-- [ ] Record viewport dimensions and check portrait/landscape layout on all phones.
-- [ ] Verify Arabic text, no horizontal overflow, readable controls, and touch response.
-- [ ] Continue with the full game foundation only after the remaining critical compatibility checks are recorded.
+- Game specification: docs/01-GAME-SPEC.md
+- Responsive UX and visual quality: docs/02-RESPONSIVE-UX.md
+- Architecture and security: docs/03-ARCHITECTURE-SECURITY.md
+- Internal build plan: docs/04-BUILD-PLAN.md
+- Physical-device test record: docs/05-COMPATIBILITY-RESULTS.md
+- Superseded hotspot experiment: docs/06-HOTSPOT-DECISION.md
+- Cloudflare Quick Tunnel: docs/07-CLOUDFLARE-QUICK-TUNNEL.md
+- Room and lobby foundation: docs/08-ROOM-LOBBY-FOUNDATION.md
