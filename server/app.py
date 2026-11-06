@@ -226,8 +226,10 @@ def make_handler(store: GameStore, engine: MatchEngine, message_bus: MessageBus,
             match_state = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match", path)
             if match_state:
                 try:
-                    session = store.get_room_for_session(match_state.group(1), _session_from_cookie(self))
-                    state = engine.get_state(match_state.group(1), session["player_id"])
+                    room_state = store.get_room_for_session(match_state.group(1), _session_from_cookie(self))
+                    if not room_state.get("you"):
+                        raise StoreError("لا توجد جلسة لاعب صالحة لهذه الغرفة.")
+                    state = engine.get_state(match_state.group(1), room_state["you"]["id"])
                     self._json(200, state)
                 except StoreError as error:
                     self._error(error)
@@ -272,17 +274,21 @@ def make_handler(store: GameStore, engine: MatchEngine, message_bus: MessageBus,
 
                 start_match = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/start", path)
                 if start_match:
-                    session = store.get_room_for_session(start_match.group(1), current_token)
-                    state = engine.start_match(start_match.group(1), session["player_id"])
+                    room_state = store.get_room_for_session(start_match.group(1), current_token)
+                    if not room_state.get("you"):
+                        raise StoreError("لا توجد جلسة لاعب صالحة لهذه الغرفة.")
+                    state = engine.start_match(start_match.group(1), room_state["you"]["id"])
                     self._json(201, state)
                     return
 
                 submit_action = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/action", path)
                 if submit_action:
-                    session = store.get_room_for_session(submit_action.group(1), current_token)
+                    room_state = store.get_room_for_session(submit_action.group(1), current_token)
+                    if not room_state.get("you"):
+                        raise StoreError("لا توجد جلسة لاعب صالحة لهذه الغرفة.")
                     state = engine.submit_action(
                         submit_action.group(1),
-                        session["player_id"],
+                        room_state["you"]["id"],
                         data.get("request_id"),
                         data.get("action"),
                         data.get("target_player_id"),
@@ -293,10 +299,12 @@ def make_handler(store: GameStore, engine: MatchEngine, message_bus: MessageBus,
 
                 submit_revenge = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/revenge", path)
                 if submit_revenge:
-                    session = store.get_room_for_session(submit_revenge.group(1), current_token)
+                    room_state = store.get_room_for_session(submit_revenge.group(1), current_token)
+                    if not room_state.get("you"):
+                        raise StoreError("لا توجد جلسة لاعب صالحة لهذه الغرفة.")
                     state = engine.submit_revenge(
                         submit_revenge.group(1),
-                        session["player_id"],
+                        room_state["you"]["id"],
                         data.get("request_id"),
                         data.get("action"),
                         data.get("target_player_id"),
