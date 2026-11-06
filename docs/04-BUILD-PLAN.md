@@ -63,8 +63,9 @@ Automated tests cover a full eight-round match and the critical concurrency/priv
 Exit criteria: all match actions and phase transitions resolve correctly on all supported browsers and physical devices.
 
 ### Milestone F — Expand the challenge and chaos systems
-- The first event deck is implemented: Market Rush, Free Guard, Bounty, Double Revenge, and High Stakes; cards persist per round and cannot repeat immediately.
-- Add the varied challenge library and server-validated challenge outcomes.
+- Implemented the first eight-card Arabic multiple-choice challenge deck: 25-second simultaneous submissions, private answers, +2 coins for a correct answer, no deduction for wrong or missing answers, persisted result reveal, and no consecutive challenge repeats.
+- Implemented the first event deck: Market Rush, Free Guard, Bounty, Double Revenge, and High Stakes; cards persist per round and cannot repeat immediately.
+- Expand the challenge library with bluffing, predictions, memory, visual attention, and head-to-head formats; keep all answer validation and rewards on the server.
 - Add bluff, trap, and the remaining agreed secret actions.
 - Expand revenge cards beyond the current counterstrike foundation.
 - Implement the larger event catalogue: Black Box, Bomb, Temporary King, Chaos, Secret Auction, and Court.
@@ -94,7 +95,7 @@ Exit criteria: a complete three-or-four-player game is playable start to finish 
 ## 5. Automated test coverage currently present
 
 - Store: room creation, 3/4 readiness thresholds, distinct seats, fifth-player rejection, duplicate/invalid names, session recovery, leave/rejoin, active-room lock, and concurrent joins.
-- Match engine: 3/4 player starts, concurrent start idempotency, secret actions, guard, theft, wager, revenge eligibility/charges, five event effects and event persistence, duplicate requests, deadlines, and a complete eight-round match.
+- Match engine: 3/4 player starts, concurrent start idempotency, timed private challenge answers, challenge rewards/timeouts, secret actions, guard, theft, wager, revenge eligibility/charges, five event effects and event persistence, duplicate requests, deadlines, and a complete eight-round match.
 - HTTP: health/static routes, cookies, session recovery, room/match APIs, active membership lock, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
 Run:
