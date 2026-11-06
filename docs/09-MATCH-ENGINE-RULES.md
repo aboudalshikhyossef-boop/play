@@ -25,24 +25,38 @@ Every player is equal. Creating the room does not grant a host role, extra power
 
 The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted.
 
+## Round event cards
+
+Round one is intentionally a teaching round with the base rules. Starting in round two, the server selects one event card for each round. The card is stored as JSON in the matching SQLite round record; all browsers receive the same card, including after refresh or reconnect. The next card is selected so it does not repeat the immediately previous card.
+
+| Event | Effect |
+|---|---|
+| سوق السرقة المفتوح | Each successful steal can transfer up to 3 coins instead of 2. |
+| درع مجاني للجميع | Guard costs 0 coins for the round and can be used even at a zero balance. It still blocks all steals against its user. |
+| مكافأة على الجرأة | Each successful thief receives 1 extra coin from the game bank. The victim loses only the normal stolen amount. The bonus is written to the coin ledger. |
+| ردّ الصاع مضاعفًا | A successful counterstrike transfers up to 2 coins instead of 1, but still consumes only one of the player's two match-long revenge charges. |
+| رهان عالي المخاطرة | The chance remains 50/50. A winning wager gives net profit of twice the stake; a losing wager still removes only the original stake. |
+
+Event selection and effect resolution are server-authoritative. The client only displays the event and adjusts its labels; it cannot choose an event or report a different outcome.
+
 ## Secret actions in the current engine
 
 | Action | Rule |
 |---|---|
-| Steal | Choose one other player. Attempt to transfer up to 2 coins from that player to yourself. |
-| Guard | Pay 1 coin. All theft attempts targeting you in the current round are blocked. |
-| Wager | Stake 1, 2, or 3 coins. The server uses a cryptographically secure 50/50 result. A win gives net profit equal to the stake; a loss removes the stake. |
+| Steal | Choose one other player. Attempt to transfer up to 2 coins from that player to yourself (up to 3 during Market Rush). |
+| Guard | Pay 1 coin. All theft attempts targeting you in the current round are blocked (free during Free Guard). |
+| Wager | Stake 1, 2, or 3 coins. The server uses a cryptographically secure 50/50 result. A win gives net profit equal to the stake (twice the stake during High Stakes); a loss removes the stake. |
 | Pass | Submit no action for the round. |
 
 All balances are resolved on the server. The engine never accepts a balance or claimed result from a browser. Coin balances cannot become negative.
 
-If multiple players target the same unguarded player, theft attempts resolve in ascending attacker seat order. Each attempt can take up to 2 coins, limited by the target's remaining balance. A guard blocks every theft attempt against that player for the round; the guard costs one coin even when nobody attacks.
+If multiple players target the same unguarded player, theft attempts resolve in ascending attacker seat order. Each attempt can take up to 2 coins (or 3 during Market Rush), limited by the target's remaining balance. A guard blocks every theft attempt against that player for the round; it costs one coin even when nobody attacks unless the Free Guard event is active. A successful theft during the Bounty event also grants the thief one ledger-recorded bonus coin from the game bank.
 
 ## Revenge
 
 - A revenge opportunity exists only for a player who actually lost at least one coin to a successful theft that round.
 - That player may counterstrike one of the players who successfully stole from them in that same round.
-- A successful counterstrike transfers exactly 1 coin from the selected thief to the victim.
+- A successful counterstrike transfers exactly 1 coin from the selected thief to the victim, or up to 2 during the Double Revenge event.
 - Each player has two revenge charges for the whole match.
 - A player can submit at most one revenge decision in a round.
 - A counterstrike cannot create another revenge opportunity. No revenge chain is possible.
@@ -51,11 +65,11 @@ If multiple players target the same unguarded player, theft attempts resolve in 
 
 ## Resolution order
 
-1. Apply one-coin guard costs and mark protected players.
-2. Resolve wagers using server-side randomness.
-3. Resolve steals in attacker seat order, respecting guards and remaining victim balance.
-4. Store the public reveal and determine eligible revenge victims.
-5. Resolve counterstrikes in victim seat order after all eligible victims submit or the revenge timer expires.
+1. Apply the current event's guard cost (0 during Free Guard) and mark protected players.
+2. Resolve wagers using server-side randomness and the current event's payout rule.
+3. Resolve steals in attacker seat order, respecting guards, the current event's steal limit, and remaining victim balance.
+4. Apply any event bounty and store the public reveal; determine eligible revenge victims.
+5. Resolve counterstrikes in victim seat order using the current event's revenge amount.
 6. Store the settled result and start the result window.
 
 Every balance change has a corresponding row in the coin ledger, including both sides of transfers.
@@ -88,6 +102,6 @@ A completed match remains recorded. Starting a rematch creates a new match ID an
 
 ## Implemented scope and remaining game design
 
-The base engine now supports eight rounds, the four core actions above, private submission, reveal, wagers, guarding, theft, counterstrike revenge, deadlines, timeout passes, persistent coin ledger, three-or-four-player matches, and final ranking.
+The engine now supports eight rounds, the four core actions above, private submission, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide explaining what coins mean, where coins move, what a wager risks, how protection works, and when revenge is available.
 
-The complete game scope still includes the designed challenge library, additional bluff/trap/event systems, random events such as Black Box/Bomb/Temporary King/Auction/Court, richer revenge cards and their balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
+The remaining game scope includes the designed challenge library, additional bluff/trap actions, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
