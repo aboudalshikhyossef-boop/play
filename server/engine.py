@@ -459,6 +459,83 @@ class MatchEngine:
         return dict(secrets.choice(choices))
 
     @staticmethod
+    def _event_requires_input(event_id: str) -> bool:
+        return event_id in INTERACTIVE_EVENT_IDS
+
+    def _prepare_round_event(
+        self, db: sqlite3.Connection, match_id: str, round_no: int, previous_id: str
+    ) -> Dict[str, Any]:
+        event = self._next_round_event(previous_id)
+        players = db.execute(
+            "SELECT player_id, seat, display_name, coins FROM match_players "
+            "WHERE match_id = ? ORDER BY seat",
+            (match_id,),
+        ).fetchall()
+        player_count = len(players)
+        if event["id"] == "black_box":
+            contents = ["bonus", "shield", "trap"]
+            secrets.SystemRandom().shuffle(contents)
+            event["box_contents"] = contents
+        elif event["id"] == "bomb":
+            start_index = (round_no - 2) % player_count
+            event["bomb_holder_id"] = players[start_index]["player_id"]
+        elif event["id"] == "temporary_king":
+            tie_start = (round_no - 2) % player_count
+            king = min(
+                players,
+                key=lambda row: (
+                    row["coins"],
+                    (row["seat"] - 1 - tie_start) % player_count,
+                ),
+            )
+            event["king_player_id"] = king["player_id"]
+        return event
+
+    @staticmethod
+    def _public_round_event(
+        event: Dict[str, Any], players: Sequence[sqlite3.Row]
+    ) -> Dict[str, Any]:
+        public = {
+            key: event[key]
+            for key in ("id", "title", "description", "effect")
+            if key in event
+        }
+        player_map = {row["player_id"]: row["display_name"] for row in players}
+        if event.get("id") == "bomb":
+            public["bomb_starter_name"] = player_map.get(event.get("bomb_holder_id"))
+        if event.get("id") == "temporary_king":
+            public["king_name"] = player_map.get(event.get("king_player_id"))
+        return public
+
+    @staticmethod
+    def _public_event_result(
+        result: Optional[Dict[str, Any]], players: Sequence[sqlite3.Row]
+    ) -> Optional[Dict[str, Any]]:
+        if not isinstance(result, dict):
+            return None
+        player_map = {row["player_id"]: row["display_name"] for row in players}
+        public = {
+            key: value for key, value in result.items()
+            if key not in ("shield_player_ids", "winner_id", "target_player_id")
+        }
+        if isinstance(result.get("entries"), list):
+            public["entries"] = [
+                {
+                    key: value
+                    for key, value in entry.items()
+                    if key not in ("player_id", "target_player_id")
+                }
+                for entry in result["entries"]
+            ]
+        if isinstance(result.get("shield_player_ids"), list):
+            public["shield_names"] = [
+                player_map[player_id]
+                for player_id in result["shield_player_ids"]
+                if player_id in player_map
+            ]
+        return public
+
+    @staticmethod
     def _new_request_id(value: Any) -> str:
         if not isinstance(value, str):
             raise InvalidInput("معرّف الطلب غير صالح.")
