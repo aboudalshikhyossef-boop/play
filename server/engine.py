@@ -29,6 +29,48 @@ MAX_WAGER = 3
 REVENGE_CHARGES = 2
 REVENGE_AMOUNT = 1
 
+# Round one deliberately uses the base rules as a gentle tutorial. Every later
+# round receives one server-selected event, persisted so all devices see the
+# same rule and reconnecting players cannot get a different card.
+ROUND_EVENTS = {
+    "opening": {
+        "id": "opening",
+        "title": "الجولة الأولى — تعرّف على اللعبة",
+        "description": "هذه جولة بالقواعد الأساسية: سرقة حتى عملتين، حماية تكلف عملة، ورهان 50/50.",
+        "effect": "تعلّم الحركات أولًا؛ بطاقات الفوضى تبدأ من الجولة الثانية.",
+    },
+    "market_rush": {
+        "id": "market_rush",
+        "title": "سوق السرقة المفتوح",
+        "description": "كل سرقة ناجحة تستطيع نقل حتى 3 عملات بدل عملتين من رصيد اللاعب المستهدف.",
+        "effect": "اختر هدفك بعناية؛ الحماية ما زالت توقف السرقة بالكامل.",
+    },
+    "free_guard": {
+        "id": "free_guard",
+        "title": "درع مجاني للجميع",
+        "description": "الحماية لا تكلف أي عملة في هذه الجولة، حتى لو كان رصيدك صفرًا.",
+        "effect": "تستطيع حماية نفسك دون دفع؛ لكنك لا تربح عملات لمجرد الحماية.",
+    },
+    "bounty": {
+        "id": "bounty",
+        "title": "مكافأة على الجرأة",
+        "description": "كل سرقة ناجحة تمنح السارق عملة إضافية من بنك اللعبة فوق العملات التي نقلها.",
+        "effect": "السرقة الناجحة تعطي السارق مكافأة +1، ولا تُخصم هذه المكافأة من الضحية.",
+    },
+    "double_revenge": {
+        "id": "double_revenge",
+        "title": "ردّ الصاع مضاعفًا",
+        "description": "من تعرّض لسرقة ناجحة يستطيع استرداد حتى عملتين من السارق بدل عملة واحدة.",
+        "effect": "تستهلك ضربة الانتقام فرصة واحدة فقط من فرصك المحدودة.",
+    },
+    "high_stakes": {
+        "id": "high_stakes",
+        "title": "رهان عالي المخاطرة",
+        "description": "احتمال الفوز يبقى 50/50؛ عند الفوز تربح صافي ضعفي مبلغ الرهان، وعند الخسارة تفقد المبلغ نفسه.",
+        "effect": "راهن بقدر ما تتحمل خسارته؛ أقصى رهان ما زال 3 عملات.",
+    },
+}
+
 
 class MatchNotFound(NotFound):
     code = "match_not_found"
@@ -102,6 +144,7 @@ class MatchEngine:
                     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
                     round_no INTEGER NOT NULL,
                     public_result_json TEXT,
+                    event_json TEXT,
                     created_at INTEGER NOT NULL,
                     settled_at INTEGER,
                     PRIMARY KEY (match_id, round_no)
@@ -153,6 +196,11 @@ class MatchEngine:
                 ON coin_ledger(match_id, round_no, id);
                 """
             )
+            round_columns = {
+                row["name"] for row in db.execute("PRAGMA table_info(match_rounds)").fetchall()
+            }
+            if "event_json" not in round_columns:
+                db.execute("ALTER TABLE match_rounds ADD COLUMN event_json TEXT")
 
     @staticmethod
     def _json_load(value: Optional[str], fallback: Any) -> Any:
@@ -162,6 +210,25 @@ class MatchEngine:
             return json.loads(value)
         except (TypeError, ValueError):
             return fallback
+
+    @staticmethod
+    def _round_event(db: sqlite3.Connection, match_id: str, round_no: int) -> Dict[str, str]:
+        row = db.execute(
+            "SELECT event_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+            (match_id, round_no),
+        ).fetchone()
+        event = MatchEngine._json_load(row["event_json"] if row else None, None)
+        if not isinstance(event, dict) or event.get("id") not in ROUND_EVENTS:
+            return dict(ROUND_EVENTS["opening"])
+        return event
+
+    @staticmethod
+    def _next_round_event(previous_id: str) -> Dict[str, str]:
+        choices = [
+            event for event_id, event in ROUND_EVENTS.items()
+            if event_id not in ("opening", previous_id)
+        ]
+        return dict(secrets.choice(choices))
 
     @staticmethod
     def _new_request_id(value: Any) -> str:
@@ -248,8 +315,12 @@ class MatchEngine:
                     ),
                 )
             db.execute(
-                "INSERT INTO match_rounds (match_id, round_no, created_at) VALUES (?, 1, ?)",
-                (match_id, now),
+                "INSERT INTO match_rounds (match_id, round_no, created_at, event_json) "
+                "VALUES (?, 1, ?, ?)",
+                (
+                    match_id, now,
+                    json.dumps(ROUND_EVENTS["opening"], ensure_ascii=False),
+                ),
             )
             db.commit()
 
@@ -289,6 +360,10 @@ class MatchEngine:
     def _resolve_actions(self, db: sqlite3.Connection, match: sqlite3.Row, now: int) -> None:
         match_id = match["id"]
         round_no = match["round_no"]
+        event = self._round_event(db, match_id, round_no)
+        event_id = event["id"]
+        guard_cost = 0 if event_id == "free_guard" else GUARD_COST
+        steal_limit = MAX_STEAL + 1 if event_id == "market_rush" else MAX_STEAL
         self._insert_timeout_passes(db, match, now)
 
         players = db.execute(
@@ -315,10 +390,10 @@ class MatchEngine:
         for action in actions:
             if action["action_type"] == "guard":
                 player_id = action["player_id"]
-                if balances[player_id] >= GUARD_COST:
-                    balances[player_id] -= GUARD_COST
+                if balances[player_id] >= guard_cost:
+                    balances[player_id] -= guard_cost
                     guarded.add(player_id)
-                    self._append_ledger(db, match_id, round_no, player_id, -GUARD_COST, "guard_cost", now=now)
+                    self._append_ledger(db, match_id, round_no, player_id, -guard_cost, "guard_cost", now=now)
 
         for action in actions:
             if action["action_type"] != "wager":
@@ -326,7 +401,7 @@ class MatchEngine:
             player_id = action["player_id"]
             stake = action["amount"]
             won = bool(secrets.randbelow(2))
-            delta = stake if won else -stake
+            delta = (stake * 2 if event_id == "high_stakes" else stake) if won else -stake
             balances[player_id] += delta
             self._append_ledger(
                 db, match_id, round_no, player_id, delta,
@@ -362,7 +437,7 @@ class MatchEngine:
                 })
                 continue
 
-            stolen = min(MAX_STEAL, balances[target_id])
+            stolen = min(steal_limit, balances[target_id])
             if stolen <= 0:
                 blocked_attacks.append({
                     "attacker_id": attacker_id,
@@ -377,6 +452,12 @@ class MatchEngine:
             balances[attacker_id] += stolen
             self._append_ledger(db, match_id, round_no, attacker_id, stolen, "successful_steal", target_id, now)
             self._append_ledger(db, match_id, round_no, target_id, -stolen, "stolen_from", attacker_id, now)
+            bounty = 1 if event_id == "bounty" else 0
+            if bounty:
+                balances[attacker_id] += bounty
+                self._append_ledger(
+                    db, match_id, round_no, attacker_id, bounty, "event_bounty", target_id, now
+                )
             db.execute(
                 "UPDATE match_players SET coins_stolen = coins_stolen + ? "
                 "WHERE match_id = ? AND player_id = ?",
@@ -388,6 +469,7 @@ class MatchEngine:
                 "target_id": target_id,
                 "target_name": target["display_name"],
                 "amount": stolen,
+                "bonus": bounty,
             })
             eligible.setdefault(target_id, [])
             if attacker_id not in eligible[target_id]:
@@ -434,6 +516,7 @@ class MatchEngine:
                 })
 
         result = {
+            "event": event,
             "actions": public_actions,
             "thefts": thefts,
             "blocked_attacks": blocked_attacks,
@@ -513,8 +596,11 @@ class MatchEngine:
                 target = self._authorize(db, match["id"], target_player_id)
                 if target_player_id == player_id:
                     raise InvalidInput("لا يمكنك سرقة نفسك.")
-            elif action_type == "guard" and current["coins"] < GUARD_COST:
-                raise InvalidInput("تحتاج إلى عملة واحدة لاستخدام الحماية.")
+            elif action_type == "guard":
+                event = self._round_event(db, match["id"], match["round_no"])
+                guard_cost = 0 if event["id"] == "free_guard" else GUARD_COST
+                if current["coins"] < guard_cost:
+                    raise InvalidInput("تحتاج إلى عملة واحدة لاستخدام الحماية.")
             elif action_type == "wager" and current["coins"] < amount:
                 raise InvalidInput("رصيدك لا يكفي لهذه المراهنة.")
 
@@ -598,7 +684,10 @@ class MatchEngine:
                 })
                 continue
 
-            if attacker["coins"] < REVENGE_AMOUNT:
+            event = result.get("event") or self._round_event(db, match_id, round_no)
+            revenge_limit = 2 if event.get("id") == "double_revenge" else REVENGE_AMOUNT
+            revenge_amount = min(revenge_limit, attacker["coins"])
+            if revenge_amount <= 0:
                 revenge_results.append({
                     "player_id": victim_id, "target_id": attacker_id,
                     "success": False, "reason": "empty_target",
@@ -608,18 +697,18 @@ class MatchEngine:
             db.execute(
                 "UPDATE match_players SET coins = coins + ?, revenge_charges = revenge_charges - 1, "
                 "revenge_used = revenge_used + 1 WHERE match_id = ? AND player_id = ?",
-                (REVENGE_AMOUNT, match_id, victim_id),
+                (revenge_amount, match_id, victim_id),
             )
             db.execute(
                 "UPDATE match_players SET coins = coins - ? WHERE match_id = ? AND player_id = ?",
-                (REVENGE_AMOUNT, match_id, attacker_id),
+                (revenge_amount, match_id, attacker_id),
             )
             self._append_ledger(
-                db, match_id, round_no, victim_id, REVENGE_AMOUNT,
+                db, match_id, round_no, victim_id, revenge_amount,
                 "revenge_counterstrike", attacker_id, now,
             )
             self._append_ledger(
-                db, match_id, round_no, attacker_id, -REVENGE_AMOUNT,
+                db, match_id, round_no, attacker_id, -revenge_amount,
                 "revenge_paid", victim_id, now,
             )
             revenge_results.append({
@@ -628,7 +717,7 @@ class MatchEngine:
                 "target_id": attacker_id,
                 "target_name": attacker["display_name"],
                 "success": True,
-                "amount": REVENGE_AMOUNT,
+                "amount": revenge_amount,
             })
 
         result["revenge_results"] = revenge_results
@@ -674,6 +763,8 @@ class MatchEngine:
             )
             return
 
+        previous_event = self._round_event(db, match["id"], match["round_no"])
+        next_event = self._next_round_event(previous_event["id"])
         next_round = match["round_no"] + 1
         db.execute(
             "UPDATE matches SET round_no = ?, phase = 'actions', deadline_at = ?, "
@@ -681,8 +772,9 @@ class MatchEngine:
             (next_round, now + ACTION_SECONDS, now, match["id"]),
         )
         db.execute(
-            "INSERT OR IGNORE INTO match_rounds (match_id, round_no, created_at) VALUES (?, ?, ?)",
-            (match["id"], next_round, now),
+            "INSERT OR IGNORE INTO match_rounds "
+            "(match_id, round_no, created_at, event_json) VALUES (?, ?, ?, ?)",
+            (match["id"], next_round, now, json.dumps(next_event, ensure_ascii=False)),
         )
 
     def submit_revenge(
@@ -784,10 +876,16 @@ class MatchEngine:
                 (match["id"],),
             ).fetchall()
             round_row = db.execute(
-                "SELECT public_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                "SELECT public_result_json, event_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
             result = self._json_load(round_row["public_result_json"] if round_row else None, None)
+            round_event = self._json_load(
+                round_row["event_json"] if round_row else None, ROUND_EVENTS["opening"]
+            )
+            if not isinstance(round_event, dict):
+                round_event = dict(ROUND_EVENTS["opening"])
 
             action_count = db.execute(
                 "SELECT COUNT(*) AS count FROM round_actions WHERE match_id = ? AND round_no = ?",
@@ -841,6 +939,7 @@ class MatchEngine:
             "revision": match["revision"],
             "player_count": len(public_players),
             "players": public_players,
+            "round_event": round_event,
             "actions_submitted": action_count,
             "action_total": len(public_players),
             "private": {
