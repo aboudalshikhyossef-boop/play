@@ -94,8 +94,6 @@ ROUND_CHALLENGES = (
     },
 )
 
-CHALLENGE_BY_ID = {challenge["id"]: challenge for challenge in ROUND_CHALLENGES}
-
 _MEMORY_WORDS = (
     "قمر", "مفتاح", "بحر", "وردة", "كتاب", "نافذة", "تفاحة", "سحابة",
     "مصباح", "طائرة", "نخلة", "ساعة", "حقيبة", "نهر", "مرآة", "نجمة",
@@ -134,7 +132,7 @@ def _random_int(low: int, high: int) -> int:
     return low + secrets.randbelow(high - low + 1)
 
 
-def _numeric_options(correct: int, offsets: Sequence[int] = (-2, -1, 1, 2, 5)) -> Tuple[List[str], int]:
+def _numeric_options(correct: int, offsets: Sequence[int] = (-2, -1, 1, 2, 5)) -> List[str]:
     distractors = []
     for offset in offsets:
         candidate = correct + offset
@@ -148,7 +146,7 @@ def _numeric_options(correct: int, offsets: Sequence[int] = (-2, -1, 1, 2, 5)) -
             distractors.append(str(candidate))
     options = [str(correct)] + distractors
     secrets.SystemRandom().shuffle(options)
-    return options, options.index(str(correct))
+    return options
 
 
 def _time_label(total_minutes: int) -> str:
@@ -184,7 +182,7 @@ def _make_challenge(
 def _addition() -> Dict[str, Any]:
     left, right = _random_int(12, 99), _random_int(11, 89)
     answer = left + right
-    options, correct = _numeric_options(answer, (-1, 1, -10, 10))
+    options = _numeric_options(answer, (-1, 1, -10, 10))
     return _make_challenge(
         "حساب ذهني", "اجمع الرقمين",
         "احسب بسرعة: %d + %d = ؟" % (left, right),
@@ -196,7 +194,7 @@ def _subtraction() -> Dict[str, Any]:
     start = _random_int(35, 180)
     removed = _random_int(5, start - 5)
     answer = start - removed
-    options, correct = _numeric_options(answer, (-2, -1, 1, 2, 5))
+    options = _numeric_options(answer, (-2, -1, 1, 2, 5))
     return _make_challenge(
         "حساب ذهني", "كم بقي؟",
         "كان معك %d قطعة وأعطيت %d قطعة. كم قطعة بقيت؟" % (start, removed),
@@ -207,7 +205,7 @@ def _subtraction() -> Dict[str, Any]:
 def _multiplication() -> Dict[str, Any]:
     left, right = _random_int(3, 18), _random_int(2, 15)
     answer = left * right
-    options, correct = _numeric_options(answer, (-left, -right, left, right, -2, 2))
+    options = _numeric_options(answer, (-left, -right, left, right, -2, 2))
     return _make_challenge(
         "حساب ذهني", "اضربها بسرعة",
         "في كل صندوق %d كرات، ولدينا %d صناديق. كم كرة لدينا؟" % (left, right),
@@ -219,7 +217,7 @@ def _sequence() -> Dict[str, Any]:
     start, step = _random_int(1, 45), _random_int(2, 13)
     values = [start + step * index for index in range(4)]
     answer = values[-1] + step
-    options, correct = _numeric_options(answer, (-step, -1, 1, step))
+    options = _numeric_options(answer, (-step, -1, 1, step))
     prompt = "اكتشف النمط: %s، ؟ ما العدد التالي؟" % "، ".join(str(v) for v in values)
     return _make_challenge(
         "اكتشف النمط", "ما الرقم التالي؟", prompt, options, str(answer),
