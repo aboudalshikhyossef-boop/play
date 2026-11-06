@@ -181,7 +181,7 @@ class MatchEngine:
         row = db.execute(
             "SELECT m.*, r.invite_code FROM matches m "
             "JOIN rooms r ON r.id = m.room_id "
-            "WHERE r.invite_code = ? %s ORDER BY m.created_at DESC LIMIT 1" % condition,
+            "WHERE r.invite_code = ? %s ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1" % condition,
             (code,),
         ).fetchone()
         if row is None:
