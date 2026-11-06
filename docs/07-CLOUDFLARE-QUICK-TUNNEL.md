@@ -2,87 +2,79 @@
 
 ## Decision
 
-Cloudflare Quick Tunnel is the selected remote access path for family testing after direct LAN/hotspot access failed on the physical devices. The owner confirmed that the temporary Cloudflare URL opened successfully in iPhone 4S Safari 9.3.6.
+Cloudflare Quick Tunnel is the current remote access path for family testing. The owner confirmed that the test page opened on iPhone 4S Safari 9.3.6 through a temporary Quick Tunnel.
 
-The game server and SQLite database stay on the Linux Mint laptop. Cloudflare provides a temporary HTTPS path to that one local server; it does not host game logic or store the match.
+The Python game server and SQLite database remain on the Linux Mint laptop. Cloudflare is a transport path to that one local process; it does not host the game engine or store match state.
 
 ## Topology
 
-```text
-Linux Mint laptop
-  Python game server: 127.0.0.1:8765
-  SQLite database: local disk
-  cloudflared process
-        |
-        | outbound encrypted tunnel
-        v
-Cloudflare edge
-  temporary HTTPS URL: https://....trycloudflare.com
-        |
-        +---- laptop player browser
-        +---- Android player 2
-        +---- Android player 3
-        +---- iPhone 4S player 4
-```
+    Linux Mint laptop
+      Python application: 127.0.0.1:8765
+      SQLite database: local disk
+      cloudflared process
+            |
+            | outbound encrypted tunnel
+            v
+    Cloudflare edge
+      temporary HTTPS URL: https://....trycloudflare.com
+            |
+            +---- laptop player browser
+            +---- Android player 2
+            +---- Android player 3
+            +---- iPhone 4S player 4
 
-All four players open the same URL. Player browsers do not connect directly to each other. The single server is authoritative for every action and balance.
+All four players open the same URL. They do not communicate directly with one another. The single server is authoritative for room state and future game actions.
 
 ## Why this path
 
 - The laptop does not need to accept unsolicited inbound connections.
-- No router port-forwarding or public IP configuration is required.
-- No local Wi-Fi hotspot or special AP-mode support is required.
+- No router port forwarding or public IP configuration is required.
+- No local Wi-Fi hotspot or AP-mode support is required.
 - Players can use different internet connections.
-- The player devices do not need to be on the same LAN.
 - Quick Tunnels do not require a Cloudflare account or custom domain.
+- The one local SQLite database remains the source of truth.
 
-This path does require internet access on the laptop and each player device during the session.
+This path requires internet access on the laptop and each player device during the session.
 
 ## Install cloudflared
 
-Install the package matching the laptop's Linux architecture and distribution by following the [official Cloudflare download instructions](https://developers.cloudflare.com/tunnel/downloads/).
+Install the package that matches the laptop's Linux architecture and distribution using the official Cloudflare download instructions:
+
+https://developers.cloudflare.com/tunnel/downloads/
 
 Verify:
 
-```bash
-cloudflared --version
-```
+    cloudflared --version
 
 The project launcher does not install or update cloudflared automatically.
 
-## Start
+## Start the application and tunnel
 
 From the repository root:
 
-```bash
-bash start_chaos.sh
-```
+    git pull --ff-only
+    bash run_tests.sh
+    bash start_chaos.sh
 
-The launcher starts the local server and then runs the equivalent of:
+The launcher starts the local application and then runs the equivalent of:
 
-```bash
-cloudflared tunnel --url http://127.0.0.1:8765
-```
+    cloudflared tunnel --url http://127.0.0.1:8765
 
-It extracts and prints the generated HTTPS URL. Share the exact URL with the three other players. The laptop player should open that same URL in the laptop browser.
+It extracts and prints the generated HTTPS URL. Share that exact URL with the three other players. The laptop player should open the same public URL in the laptop browser.
+
+The first player creates a room. The app assigns seat 1, creates a 10-character room code, and displays an invitation link. The other players use that code/link to occupy seats 2–4. Room membership and player sessions are stored locally on the laptop.
 
 Keep the terminal open for the entire session. Press Ctrl+C to stop both the tunnel and the local server.
 
-The old command:
-
-```bash
-bash start_chaos_lan.sh
-```
-
-is retained as a backward-compatible alias and now invokes the Quick Tunnel launcher. It does not start a Wi-Fi access point.
+The old command bash start_chaos_lan.sh is retained as a backward-compatible alias and now launches the same Cloudflare path. It does not start a Wi-Fi access point.
 
 ## Proton VPN
 
-The project launcher does not modify Proton VPN, its Kill Switch, DNS settings, firewall, or routing table. cloudflared uses the existing operating-system network path. The owner has tested the tunnel while Proton VPN was in use.
+The project launcher does not modify Proton VPN, its Kill Switch, DNS settings, firewall, or routing table. cloudflared uses the existing operating-system network path. The owner has confirmed that their manual Quick Tunnel test worked while using their VPN setup.
 
-If the VPN or Kill Switch blocks the outbound connection, diagnose that policy normally. Do not disable the Kill Switch or add a bypass just to make the game work. The launcher reports a startup failure rather than changing VPN protection.
+If VPN or Kill Switch policy blocks the outbound tunnel, diagnose that normally. Do not disable the Kill Switch or add a bypass just to make the game work.
 
-## Important Quick Tunnel limitations
+## Quick Tunnel limitations
 
 Quick Tunnels are intended for testing and development:
 - The hostname is randomly generated and changes when a new tunnel is created.
@@ -91,37 +83,39 @@ Quick Tunnels are intended for testing and development:
 - Each Quick Tunnel supports up to 200 in-flight requests.
 - Server-Sent Events (SSE) are not supported.
 
-The client synchronization plan therefore uses XMLHttpRequest polling, not SSE. A future permanent/public deployment needs a separately reviewed named-tunnel or hosting design.
+The lobby therefore uses XMLHttpRequest polling rather than SSE. Current polling is approximately every 1.6 seconds per active client. A permanent/public deployment needs a separately reviewed named-tunnel or hosting design.
 
 ## Security
 
-Anyone who obtains a Quick Tunnel URL can access the service exposed through it while the tunnel is running. The random URL is not authentication. Do not expose the full game until the application has:
-- A high-entropy room invite code with expiry and attempt limits.
-- Exactly four seats per room.
-- Separate high-entropy sessions for each player.
-- Server-side ownership checks on every action and state request.
-- Player-specific private state and delayed public reveal.
-- Request-size and rate limits.
-- No debug, admin, or filesystem endpoints reachable by players.
+Anyone who obtains a Quick Tunnel URL can access the service exposed through it while the tunnel is active. The random URL is not authentication.
 
-The compatibility probe currently has no private match information. Stop its tunnel promptly after testing.
+The current lobby adds:
+- A random room invite code separate from player sessions.
+- Exactly four seats per room.
+- Separate high-entropy player sessions.
+- Secure, HttpOnly, SameSite cookies for HTTPS browsers.
+- Session ownership checks on room state and mutations.
+- Request-size validation, Origin checks, and basic rate limits.
+
+The /compatibility page and its diagnostic message feed are intentionally unauthenticated and must not be used for private game data. Disable/remove that diagnostic endpoint before broader exposure.
 
 Browser-to-Cloudflare traffic uses HTTPS. cloudflared maintains an encrypted outbound tunnel to the laptop. This should not be described as end-to-end encryption that prevents Cloudflare's edge from processing requests.
 
 ## Runtime data
 
-The tunnel URL, logs, tokens, match state, and SQLite database must not be committed. The launcher creates a permission-restricted temporary directory for its logs and removes it when it exits. Store the eventual game database outside the repository and retain only safe example configuration in Git.
+The database is stored outside the repository by default in the user's local application data directory. The tunnel URL, session cookies/tokens, room invite codes, logs, and player data must not be committed. The repository is public.
 
 ## Verification
 
-- [x] Quick Tunnel opened the compatibility page on iPhone 4S Safari 9.3.6 (owner-confirmed).
-- [ ] Open the same tunnel URL on both Android phones.
-- [ ] Verify GET ping and POST echo from each device.
-- [ ] Test reconnect after briefly disconnecting one phone.
-- [ ] Test that Ctrl+C stops the Python server and cloudflared process.
-- [ ] Repeat Safari portrait/landscape layout checks after the game UI exists.
+- [x] Owner-confirmed Quick Tunnel page load on iPhone 4S Safari 9.3.6.
+- [x] Local API and room-store test suite passed in the development container.
+- [ ] Run the updated project on the Linux Mint laptop.
+- [ ] Open the same Quick Tunnel URL on both Android phones and the iPhone.
+- [ ] Verify room creation, all four seats, readiness polling, refresh recovery, and leave.
+- [ ] Verify that a phone's diagnostic message appears on the laptop's /compatibility page.
+- [ ] Recheck iPhone 4S portrait and landscape layout.
 
 ## Official references
 
-- [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
-- [cloudflared downloads](https://developers.cloudflare.com/tunnel/downloads/)
+- Cloudflare Quick Tunnels: https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/
+- cloudflared downloads: https://developers.cloudflare.com/tunnel/downloads/
