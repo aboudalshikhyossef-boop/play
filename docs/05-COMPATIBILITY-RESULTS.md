@@ -44,7 +44,7 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 ## Automated checks run during development
 
-The repository test suite now contains 52 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, private timed challenge submissions and scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest GitHub Actions run passed: [run 83 — all 52 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264954447).
+The repository test suite now contains 58 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, generated challenge diversity, permanent no-repeat history across matches and engine restarts, legacy question migration, private timed challenge scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest fully verified GitHub Actions run passed: [run 96 — all 58 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42266496009).
 
 Local checks also include:
 - Python compileall.
@@ -55,7 +55,7 @@ These checks were run in the development container. They are not a substitute fo
 
 ## Match-engine verification status
 
-The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the original match arena and controls worked across the connected phones, including the iPhone 4S. The timed challenge panel and answer-reveal screen are newer and remain pending physical acceptance.
+The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, generated challenge families and valid answer keys, no repeated question fingerprints across separate matches and engine restarts, migration of previously used legacy questions, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the original match arena and controls worked across the connected phones, including the iPhone 4S. The generated question panel, answer-reveal screen, and five-step round roadmap are newer and remain pending physical acceptance.
 
 ## Required acceptance criteria
 
