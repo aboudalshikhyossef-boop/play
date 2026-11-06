@@ -210,6 +210,7 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   color: #d3d8ea;
   background: #202740;
   font-size: 13px;
+  word-wrap: break-word;
   overflow-wrap: break-word;
 }
 
@@ -218,7 +219,8 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
 
 .room-card { border-color: #51477b; background: #201d38; text-align: center; }
 .room-meta { color: #bbb1e5; font-size: 12px; }
-.room-code { margin: 6px 0 13px; color: #f4c96b; font-size: 27px; font-weight: bold; letter-spacing: 3px; overflow-wrap: break-word; }
+.room-code { margin: 6px 0 13px; color: #f4c96b; font-size: 27px; font-weight: bold; letter-spacing: 3px; word-wrap: break-word;
+  overflow-wrap: break-word; }
 .invite-row { display: block; }
 .invite-input { direction: ltr; min-height: 44px; color: #292b42; font-size: 12px; text-align: left; }
 .copy-button {
@@ -234,7 +236,8 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   font-size: 14px;
   font-weight: bold;
 }
-.small-note { margin: 9px 0 0; color: #9ea5bf; font-size: 12px; overflow-wrap: break-word; }
+.small-note { margin: 9px 0 0; color: #9ea5bf; font-size: 12px; word-wrap: break-word;
+  overflow-wrap: break-word; }
 
 .players-heading {
   display: -webkit-box;
@@ -287,9 +290,11 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
 .seat-gold { background: #a77b2b; }
 
 .seat-copy { min-width: 0; margin-right: 10px; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
-.seat-name { color: #f4f3fb; font-size: 14px; font-weight: bold; overflow-wrap: break-word; }
+.seat-name { color: #f4f3fb; font-size: 14px; font-weight: bold; word-wrap: break-word;
+  overflow-wrap: break-word; }
 .seat-subtitle { color: #9fa6bf; font-size: 11px; }
-.seat-state { max-width: 85px; margin-right: 5px; color: #aeb5ca; font-size: 11px; text-align: left; overflow-wrap: break-word; }
+.seat-state { max-width: 85px; margin-right: 5px; color: #aeb5ca; font-size: 11px; text-align: left; word-wrap: break-word;
+  overflow-wrap: break-word; }
 .seat-state.ready { color: #8ce0b8; }
 .seat-state.offline { color: #e5b875; }
 .lobby-actions { margin-top: 14px; }
