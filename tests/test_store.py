@@ -100,5 +100,15 @@ class GameStoreTests(unittest.TestCase):
         self.assertEqual(sorted(player["seat"] for player in room["players"]), [1, 2, 3, 4])
 
 
+    def test_custom_database_path_does_not_change_parent_permissions(self):
+        custom_dir = Path(self.temp.name) / "shared-dir"
+        custom_dir.mkdir(mode=0o755)
+        custom_dir.chmod(0o755)
+        custom_db = custom_dir / "custom.sqlite3"
+        GameStore(str(custom_db))
+        self.assertEqual(custom_dir.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(custom_db.stat().st_mode & 0o777, 0o600)
+
+
 if __name__ == "__main__":
     unittest.main()
