@@ -231,6 +231,7 @@ class MatchEngineTests(unittest.TestCase):
         code, tokens, state = self.start(3)
         player_ids = [player["id"] for player in state["players"]]
         previous_challenge_id = state["challenge"]["id"]
+        used_prompts = {state["challenge"]["prompt"]}
 
         for round_no in range(1, 9):
             for index, player_id in enumerate(player_ids):
@@ -252,6 +253,8 @@ class MatchEngineTests(unittest.TestCase):
                 self.assertEqual(state["phase"], "challenge")
                 self.assertEqual(state["round"], round_no + 1)
                 self.assertNotEqual(state["challenge"]["id"], previous_challenge_id)
+                self.assertNotIn(state["challenge"]["prompt"], used_prompts)
+                used_prompts.add(state["challenge"]["prompt"])
                 previous_challenge_id = state["challenge"]["id"]
                 state = self.answer_challenge_for_all(code, state)
                 self.assertEqual(state["phase"], "actions")
@@ -390,7 +393,12 @@ class MatchEngineTests(unittest.TestCase):
         self.assertIsNone(state["challenge_result"])
         self.assertNotIn("correct_index", state["challenge"])
 
-        challenge = CHALLENGE_BY_ID[state["challenge"]["id"]]
+        with closing(self.store._connect()) as db:
+            row = db.execute(
+                "SELECT challenge_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                (state["match_id"], state["round"]),
+            ).fetchone()
+        challenge = json.loads(row["challenge_json"])
         correct = challenge["correct_index"]
         wrong = (correct + 1) % len(challenge["options"])
         first = self.engine.submit_challenge(code, player_ids[0], "quiz-answer-0001", correct)
@@ -445,6 +453,96 @@ class MatchEngineTests(unittest.TestCase):
         self.assertFalse(advanced["private"]["action_submitted"])
         self.assertTrue(all(not item["answered"] for item in advanced["challenge_result"]["answers"]))
         self.assertEqual([p["coins"] for p in advanced["players"]], [10, 10, 10])
+
+
+    def test_questions_never_repeat_across_matches_or_engine_restart(self):
+        code1, tokens1 = self.create_ready_room(3)
+        id1 = self.store.get_session(tokens1[0])["player_id"]
+        first = self.engine.start_match(code1, id1)
+        prompt1 = first["challenge"]["prompt"]
+
+        code2, tokens2 = self.create_ready_room(3)
+        id2 = self.store.get_session(tokens2[0])["player_id"]
+        second = self.engine.start_match(code2, id2)
+        prompt2 = second["challenge"]["prompt"]
+        self.assertNotEqual(prompt1, prompt2)
+
+        restarted_engine = MatchEngine(self.store)
+        code3, tokens3 = self.create_ready_room(3)
+        id3 = self.store.get_session(tokens3[0])["player_id"]
+        third = restarted_engine.start_match(code3, id3)
+        prompt3 = third["challenge"]["prompt"]
+        self.assertNotIn(prompt3, {prompt1, prompt2})
+
+        with closing(self.store._connect()) as db:
+            used = db.execute("SELECT COUNT(*) AS count FROM challenge_history").fetchone()["count"]
+        self.assertGreaterEqual(used, 3)
+
+    def test_legacy_questions_are_backfilled_and_rejected_by_unique_claim(self):
+        code, tokens = self.create_ready_room(3)
+        player_id = self.store.get_session(tokens[0])["player_id"]
+        state = self.engine.start_match(code, player_id)
+        legacy = dict(ROUND_CHALLENGES[0])
+        fingerprint = challenge_fingerprint(legacy["prompt"], legacy["options"])
+
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_rounds SET challenge_json = ? WHERE match_id = ? AND round_no = 1",
+                (json.dumps(legacy, ensure_ascii=False), state["match_id"]),
+            )
+            db.execute(
+                "DELETE FROM challenge_history WHERE fingerprint = ?",
+                (fingerprint,),
+            )
+
+        migrated_engine = MatchEngine(self.store)
+        with closing(self.store._connect()) as db:
+            migrated = db.execute(
+                "SELECT prompt FROM challenge_history WHERE fingerprint = ?",
+                (fingerprint,),
+            ).fetchone()
+        self.assertIsNotNone(migrated)
+        self.assertEqual(migrated["prompt"], legacy["prompt"])
+
+        fresh = {
+            "id": "fresh-test-question",
+            "family": "اختبار",
+            "title": "سؤال جديد",
+            "prompt": "هذا سؤال اختباري فريد لم يسبق استخدامه 73921؟",
+            "options": ["أ", "ب", "ج"],
+            "correct_index": 0,
+            "explanation": "إجابة الاختبار.",
+        }
+        with closing(self.store._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            with patch(
+                "server.engine.generate_challenge",
+                side_effect=[legacy, fresh],
+            ):
+                selected = migrated_engine._claim_unique_challenge(
+                    db, state["match_id"], 2
+                )
+            db.commit()
+        self.assertEqual(selected["id"], "fresh-test-question")
+
+    def test_generated_challenges_cover_multiple_families_and_valid_answer_keys(self):
+        generated = [generate_challenge() for _ in range(120)]
+        families = {challenge["family"] for challenge in generated}
+        self.assertGreaterEqual(len(families), 6)
+        for challenge in generated:
+            self.assertGreaterEqual(len(challenge["options"]), 3)
+            self.assertEqual(len(set(challenge["options"])), len(challenge["options"]))
+            self.assertGreaterEqual(challenge["correct_index"], 0)
+            self.assertLess(challenge["correct_index"], len(challenge["options"]))
+            self.assertTrue(challenge["explanation"])
+
+    def test_same_question_with_reordered_choices_has_same_fingerprint(self):
+        prompt = "احسب بسرعة: 23 + 14 = ؟"
+        first = challenge_fingerprint(prompt, ["37", "36", "38"])
+        reordered = challenge_fingerprint(prompt, ["38", "37", "36"])
+        different = challenge_fingerprint(prompt, ["37", "35", "38"])
+        self.assertEqual(first, reordered)
+        self.assertNotEqual(first, different)
 
 if __name__ == "__main__":
     unittest.main()
