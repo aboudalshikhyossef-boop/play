@@ -1618,7 +1618,13 @@ class MatchEngine:
                     raise InvalidInput("لا يمكنك سرقة نفسك.")
             elif action_type == "guard":
                 event = self._round_event(db, match["id"], match["round_no"])
-                guard_cost = 0 if event["id"] == "free_guard" else GUARD_COST
+                guard_cost = 0 if (
+                    event["id"] == "free_guard"
+                    or (
+                        event["id"] == "temporary_king"
+                        and event.get("king_player_id") == player_id
+                    )
+                ) else GUARD_COST
                 if current["coins"] < guard_cost:
                     raise InvalidInput("تحتاج إلى عملة واحدة لاستخدام الحماية.")
             elif action_type == "wager" and current["coins"] < amount:
@@ -2059,6 +2065,10 @@ class MatchEngine:
             "private": {
                 "challenge_submitted": bool(my_challenge),
                 "event_submitted": bool(my_event),
+                "is_temporary_king": (
+                    event_raw.get("id") == "temporary_king"
+                    and event_raw.get("king_player_id") == player_id
+                ),
                 "action_submitted": bool(my_action),
                 "revenge_submitted": bool(revenge_submitted),
                 "revenge_charges": my_row["revenge_charges"],
