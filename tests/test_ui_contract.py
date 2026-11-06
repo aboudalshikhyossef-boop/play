@@ -79,7 +79,7 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn("اختيارات الجميع تبقى سرية", self.html)
         self.assertIn("function renderRoundEvent(event)", self.js)
         self.assertIn('byId("rulesToggle").onclick = toggleRules', self.js)
-        self.assertIn('var isHidden = /\\\\bhidden\\\\b/', self.js)
+        self.assertIn('var isHidden = /\\bhidden\\b/', self.js)
         for event_id in ("market_rush", "free_guard", "bounty", "double_revenge", "high_stakes"):
             self.assertIn(event_id, self.engine)
 
