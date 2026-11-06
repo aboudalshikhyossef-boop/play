@@ -17,7 +17,7 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The eight-round match engine now includes the first chaos expansion.** It supports secret simultaneous actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, final ranking, a beginner-friendly in-game rules guide, and five server-selected round-event cards. The remaining work includes the larger challenge library, bluff/trap actions, more event types (Black Box, Bomb, Temporary King, Auction, Court), comeback tuning, match statistics, and the final visual/audio layer.
+**The eight-round match engine now includes a real challenge phase and the first chaos expansion.** Each round opens with one of eight Arabic family-friendly multiple-choice challenges (25 seconds; +2 coins for a correct answer, no penalty for a wrong or missing answer). Answers remain private until everyone answers or time expires. The round then proceeds to secret steal, guard, wager, or pass choices, followed by reveal and bounded revenge. Five server-selected event cards also modify later rounds. Remaining work includes bluff/trap actions, the larger event catalogue (Black Box, Bomb, Temporary King, Auction, Court), broader challenge families, comeback tuning, match statistics, and the final visual/audio layer.
 
 ## Fixed product requirements
 
@@ -96,11 +96,11 @@ The suite covers:
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
 - Three/four-player match start, ready validation, and active-room membership lock.
-- Secret action privacy, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
+- Private challenge answers, challenge rewards and timeouts, secret action privacy, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **48 automated tests**. The latest GitHub Actions run passed: [run 62 — 48 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42263709312). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **52 automated tests**. The latest GitHub Actions run passed: [run 75 — 52 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264655578). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
 Automated checks do not replace physical testing. The owner reports that the current game and match controls work across the connected phones, including iPhone 4S Safari 9.3.6. A separate acceptance pass is still useful for 320 CSS px, portrait/landscape, disconnect/reconnect, and completing all eight rounds on three and four devices.
 
