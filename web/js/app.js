@@ -290,7 +290,6 @@
     }
     renderRoom(payload.room, payload.player_id);
     checkForMatch();
-    scheduleRoomPoll();
   }
 
   function checkForMatch() {
@@ -321,7 +320,7 @@
       pollBusy = false;
       if (status === 200 && payload.ok) {
         renderRoom(payload.room, payload.room.you ? payload.room.you.id : "");
-        scheduleRoomPoll();
+        checkForMatch();
       } else if (status === 401) {
         showHome("انتهت جلسة اللاعب. أدخل رمز الغرفة للانضمام مجددًا.", "bad");
       } else {
@@ -601,7 +600,24 @@
       setTextById("phaseDescription", "تُكشف الحركات معًا بعد إرسال الجميع أو انتهاء الوقت.");
       fillTargets(byId("actionTarget"), state.players || [], null, true);
       var actionLocked = !!state.private.action_submitted;
+      var myCoins = 0;
+      for (var coinIndex = 0; coinIndex < state.players.length; coinIndex += 1) {
+        if (player && state.players[coinIndex].id === player.id) {
+          myCoins = state.players[coinIndex].coins;
+          break;
+        }
+      }
       setActionControlsEnabled(!actionLocked);
+      byId("guardAction").disabled = actionLocked || myCoins < 1;
+      var wagerOptions = byId("wagerAmount").options;
+      for (var wagerIndex = 0; wagerIndex < wagerOptions.length; wagerIndex += 1) {
+        wagerOptions[wagerIndex].disabled = parseInt(wagerOptions[wagerIndex].value, 10) > myCoins;
+      }
+      if (wagerOptions.length && wagerOptions[byId("wagerAmount").selectedIndex] &&
+          wagerOptions[byId("wagerAmount").selectedIndex].disabled) {
+        byId("wagerAmount").value = myCoins >= 1 ? String(Math.min(3, myCoins)) : "1";
+      }
+      byId("wagerAction").disabled = actionLocked || myCoins < 1;
       setNotice(
         "actionStatus",
         actionLocked
