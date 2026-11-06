@@ -44,7 +44,7 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 ## Automated checks run during development
 
-The local test suite currently includes 16 tests covering the room store, concurrency, HTTP API, cookie flags, rate limits, origin checks, and shared diagnostic messages.
+The local test suite currently includes 17 tests covering the room store, concurrency, HTTP API, cookie flags, rate limits, origin checks, and shared diagnostic messages.
 
 Local checks also include:
 - Python compileall.
