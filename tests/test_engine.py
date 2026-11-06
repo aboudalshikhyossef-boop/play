@@ -221,6 +221,7 @@ class MatchEngineTests(unittest.TestCase):
     def test_full_eight_round_match_transitions_and_finishes(self):
         code, tokens, state = self.start(3)
         player_ids = [player["id"] for player in state["players"]]
+        previous_challenge_id = state["challenge"]["id"]
 
         for round_no in range(1, 9):
             for index, player_id in enumerate(player_ids):
@@ -241,11 +242,8 @@ class MatchEngineTests(unittest.TestCase):
             if round_no < 8:
                 self.assertEqual(state["phase"], "challenge")
                 self.assertEqual(state["round"], round_no + 1)
-                self.assertNotEqual(
-                    state["challenge"]["id"],
-                    CHALLENGE_BY_ID[ROUND_CHALLENGES[0]["id"]]["id"]
-                    if round_no == 0 else "",
-                )
+                self.assertNotEqual(state["challenge"]["id"], previous_challenge_id)
+                previous_challenge_id = state["challenge"]["id"]
                 state = self.answer_challenge_for_all(code, state)
                 self.assertEqual(state["phase"], "actions")
             else:
