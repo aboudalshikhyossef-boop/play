@@ -72,7 +72,9 @@ class LegacyUIContractTests(unittest.TestCase):
             "roundEventDescription", "roundEventEffect", "challengePanel",
             "challengeTitle", "challengeFamily", "challengePrompt", "challengeAnswer",
             "challengeSubmit", "challengeStatus", "challengeSummary",
-            "challengeCorrectAnswer", "challengeExplanation", "challengeResults"
+            "challengeCorrectAnswer", "challengeExplanation", "challengeResults",
+            "roundFlow", "roundFlowStatus", "flowChallenge", "flowAction",
+            "flowReveal", "flowRevenge", "flowResult"
         }
         self.assertTrue(required.issubset(html_ids))
         self.assertIn("MIN_PLAYERS = 3", self.engine)
@@ -98,6 +100,26 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn("challenge_result_json", self.engine)
         self.assertIn("correct_index", self.challenge_source)
         self.assertIn("challenge_submitted", self.engine)
+
+    def test_questions_are_generated_and_permanently_tracked(self):
+        self.assertIn("def generate_challenge()", self.challenge_source)
+        self.assertIn("challenge_fingerprint", self.challenge_source)
+        self.assertIn("CREATE TABLE IF NOT EXISTS challenge_history", self.engine)
+        self.assertIn("INSERT OR IGNORE INTO challenge_history", self.engine)
+        self.assertIn("legacy_rows", self.engine)
+        self.assertIn("function renderRoundFlow(state)", self.js)
+        self.assertIn('class="round-flow-step', self.html)
+        self.assertIn(".round-flow-step.is-current", self.css)
+        self.assertIn(".round-flow-step.is-skipped", self.css)
+
+    def test_every_round_phase_has_a_plain_language_explanation(self):
+        for phrase in (
+            "الخطوة 1 من 5", "الخطوة 2 من 5", "الخطوة 4 من 5",
+            "الخطوة 5 من 5", "كشف الخادم كل الاختيارات",
+            "تبدأ الجولة التالية بسؤال جديد",
+        ):
+            self.assertIn(phrase, self.js)
+        self.assertIn("عند حدوث سرقة فقط", self.html)
 
 
 if __name__ == "__main__":
