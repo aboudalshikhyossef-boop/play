@@ -575,7 +575,7 @@ class MatchEngineTests(unittest.TestCase):
 
     def test_prediction_challenge_reveals_valid_server_generated_dice_sum(self):
         challenge = generate_challenge(mode="prediction")
-        roll = re.search(r"كانت النردتان (\\d+) و(\\d+)", challenge["explanation"])
+        roll = re.search(r"كانت النردتان (\d+) و(\d+)", challenge["explanation"])
         self.assertIsNotNone(roll)
         dice_sum = int(roll.group(1)) + int(roll.group(2))
         self.assertEqual(challenge["mode"], "prediction")
