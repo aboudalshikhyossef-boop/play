@@ -37,17 +37,17 @@ The lobby displays up to four seats, connection state, readiness state, and the 
 The rules must explain all costs, rewards, caps, and tie-breakers before a match begins.
 
 ## 5. Round lifecycle
-1. Round setup: server selects a challenge and any modifier.
-2. Challenge: all players receive a task, prompt, prediction, or mini-game.
-3. Secret action selection: each player submits one permitted action privately.
-4. Lock: choices are locked on submission or when the server deadline expires.
-5. Reveal: eligible actions are revealed together.
-6. Resolution: server resolves interactions in a documented deterministic order.
-7. Revenge window: eligible affected players may use a limited counter-action.
-8. Settlement: balances, effects, public events, and rankings are updated.
-9. Transition: next round begins after clients receive the settled state.
+1. Round setup: the server selects a fresh challenge and an event/modifier without exposing hidden payloads.
+2. Challenge: all players receive the same task and answer privately.
+3. Optional event decision: Black Box, Bomb, Secret Auction, and Court collect simultaneous secret choices for 20 seconds; Temporary King is applied automatically after challenge scoring.
+4. Secret action selection: each player submits one permitted action privately for 60 seconds.
+5. Lock and reveal: choices are locked on submission or deadline, then revealed together.
+6. Resolution: the server applies event shields, penalties, bonuses, steals, guards, and wagers in the documented order.
+7. Revenge window: eligible affected players may use a limited counter-action for 15 seconds.
+8. Settlement: balances, effects, public events, and the coin ledger are updated; the result appears for 10 seconds.
+9. Transition: the next round begins automatically after the result window.
 
-A match contains eight rounds. Each round currently starts with a 25-second simultaneous multiple-choice challenge; a correct answer earns 2 coins, while an incorrect or missing answer earns nothing and costs nothing. Challenge answers remain private until the shared reveal. The secret action selection then lasts 60 seconds, an eligible revenge window lasts 15 seconds, and the result display lasts 10 seconds. These are initial implementation values and must be tuned through playtesting.
+A match contains eight rounds. Each round starts with a 25-second simultaneous challenge. An interactive large event, when selected, then gives players 20 seconds for secret choices before the 60-second secret-action phase. Temporary King and passive modifiers resolve without a separate decision window. Revenge lasts 15 seconds when a qualifying theft occurs, followed by a 10-second result display. Event choices and outcomes are server-authoritative and ledger-backed.
 
 ## 6. Secret actions
 Initial action families:
@@ -88,7 +88,7 @@ Candidate event deck:
 - Secret Auction: simultaneous hidden bids for a special ability.
 - Court: a vote with a clear, bounded consequence.
 
-The event engine must support adding and tuning events without rewriting the round manager. Each event needs eligibility, duration, effect, visibility, cancellation behavior, and tests.
+The event engine must support adding and tuning events without rewriting the round manager. Current implementation includes Black Box, Bomb, Temporary King, Secret Auction, and Court, plus five passive modifiers. Interactive event decisions have a 20-second deadline, remain private until shared reveal, and use safe defaults on timeout. Each event has explicit eligibility, duration, effect, visibility, cancellation/timeout behavior, and automated tests.
 
 ## 9. Challenge library
 The game must rotate among varied challenge families:
