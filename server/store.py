@@ -98,11 +98,15 @@ class GameStore:
     def __init__(self, database_path: Optional[str] = None) -> None:
         raw_path = database_path or os.environ.get("CHAOS_DB_PATH")
         self.database_path = Path(raw_path).expanduser() if raw_path else default_database_path()
+        # Only tighten permissions on the application's own default data folder.
+        # A caller-supplied parent may be shared (for example /tmp) and must not
+        # have its permissions modified as a side effect.
         self.database_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        try:
-            os.chmod(str(self.database_path.parent), 0o700)
-        except OSError:
-            pass
+        if not raw_path:
+            try:
+                os.chmod(str(self.database_path.parent), 0o700)
+            except OSError:
+                pass
         self._initialize()
         if self.database_path.exists():
             try:
