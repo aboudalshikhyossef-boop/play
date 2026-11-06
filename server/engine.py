@@ -14,6 +14,12 @@ import uuid
 from contextlib import closing
 from typing import Any, Dict, List, Optional
 
+from .challenges import (
+    CHALLENGE_BY_ID,
+    CHALLENGE_REWARD,
+    CHALLENGE_SECONDS,
+    ROUND_CHALLENGES,
+)
 from .store import GameStore, InvalidInput, NotFound, RoomNotOpen, StoreError, _normalize_code
 
 MIN_PLAYERS = 3
@@ -145,6 +151,8 @@ class MatchEngine:
                     round_no INTEGER NOT NULL,
                     public_result_json TEXT,
                     event_json TEXT,
+                    challenge_json TEXT,
+                    challenge_result_json TEXT,
                     created_at INTEGER NOT NULL,
                     settled_at INTEGER,
                     PRIMARY KEY (match_id, round_no)
@@ -181,6 +189,19 @@ class MatchEngine:
                     FOREIGN KEY (match_id, player_id) REFERENCES match_players(match_id, player_id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS challenge_answers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    match_id TEXT NOT NULL,
+                    round_no INTEGER NOT NULL,
+                    player_id TEXT NOT NULL,
+                    answer_index INTEGER NOT NULL,
+                    request_id TEXT NOT NULL,
+                    submitted_at INTEGER NOT NULL,
+                    UNIQUE (match_id, round_no, player_id),
+                    UNIQUE (match_id, player_id, request_id),
+                    FOREIGN KEY (match_id, player_id) REFERENCES match_players(match_id, player_id) ON DELETE CASCADE
+                );
+
                 CREATE TABLE IF NOT EXISTS coin_ledger (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -201,6 +222,10 @@ class MatchEngine:
             }
             if "event_json" not in round_columns:
                 db.execute("ALTER TABLE match_rounds ADD COLUMN event_json TEXT")
+            if "challenge_json" not in round_columns:
+                db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_json TEXT")
+            if "challenge_result_json" not in round_columns:
+                db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_result_json TEXT")
 
     @staticmethod
     def _json_load(value: Optional[str], fallback: Any) -> Any:
@@ -221,6 +246,25 @@ class MatchEngine:
         if not isinstance(event, dict) or event.get("id") not in ROUND_EVENTS:
             return dict(ROUND_EVENTS["opening"])
         return event
+
+    @staticmethod
+    def _round_challenge(db: sqlite3.Connection, match_id: str, round_no: int) -> Dict[str, Any]:
+        row = db.execute(
+            "SELECT challenge_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+            (match_id, round_no),
+        ).fetchone()
+        challenge = MatchEngine._json_load(row["challenge_json"] if row else None, None)
+        if not isinstance(challenge, dict) or challenge.get("id") not in CHALLENGE_BY_ID:
+            return dict(ROUND_CHALLENGES[0])
+        return challenge
+
+    @staticmethod
+    def _next_round_challenge(previous_id: str) -> Dict[str, Any]:
+        choices = [
+            challenge for challenge in ROUND_CHALLENGES
+            if challenge["id"] != previous_id
+        ]
+        return dict(secrets.choice(choices))
 
     @staticmethod
     def _next_round_event(previous_id: str) -> Dict[str, str]:
@@ -302,7 +346,7 @@ class MatchEngine:
                 "INSERT INTO matches "
                 "(id, room_id, status, phase, round_no, total_rounds, deadline_at, revision, created_at, updated_at) "
                 "VALUES (?, ?, 'active', 'actions', 1, ?, ?, 1, ?, ?)",
-                (match_id, room["id"], TOTAL_ROUNDS, now + ACTION_SECONDS, now, now),
+                (match_id, room["id"], TOTAL_ROUNDS, now + CHALLENGE_SECONDS, now, now),
             )
             for row in roster:
                 db.execute(
@@ -315,11 +359,13 @@ class MatchEngine:
                     ),
                 )
             db.execute(
-                "INSERT INTO match_rounds (match_id, round_no, created_at, event_json) "
-                "VALUES (?, 1, ?, ?)",
+                "INSERT INTO match_rounds "
+                "(match_id, round_no, created_at, event_json, challenge_json) "
+                "VALUES (?, 1, ?, ?, ?)",
                 (
                     match_id, now,
                     json.dumps(ROUND_EVENTS["opening"], ensure_ascii=False),
+                    json.dumps(secrets.choice(ROUND_CHALLENGES), ensure_ascii=False),
                 ),
             )
             db.commit()
@@ -345,6 +391,136 @@ class MatchEngine:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (match_id, round_no, player_id, delta, reason, source_player_id, now or int(time.time())),
         )
+
+    def _resolve_challenge(self, db: sqlite3.Connection, match: sqlite3.Row, now: int) -> None:
+        match_id = match["id"]
+        round_no = match["round_no"]
+        challenge = self._round_challenge(db, match_id, round_no)
+        players = db.execute(
+            "SELECT mp.player_id, mp.display_name, mp.seat, ca.answer_index "
+            "FROM match_players mp LEFT JOIN challenge_answers ca "
+            "ON ca.match_id = mp.match_id AND ca.round_no = ? AND ca.player_id = mp.player_id "
+            "WHERE mp.match_id = ? ORDER BY mp.seat",
+            (round_no, match_id),
+        ).fetchall()
+
+        answers = []
+        for player in players:
+            answer_index = player["answer_index"]
+            answered = answer_index is not None
+            correct = answered and answer_index == challenge["correct_index"]
+            reward = CHALLENGE_REWARD if correct else 0
+            if reward:
+                db.execute(
+                    "UPDATE match_players SET coins = coins + ? WHERE match_id = ? AND player_id = ?",
+                    (reward, match_id, player["player_id"]),
+                )
+                self._append_ledger(
+                    db, match_id, round_no, player["player_id"], reward,
+                    "challenge_reward", now=now,
+                )
+            answers.append({
+                "player_id": player["player_id"],
+                "player_name": player["display_name"],
+                "answered": bool(answered),
+                "answer_index": answer_index,
+                "answer_text": challenge["options"][answer_index] if answered else None,
+                "correct": bool(correct),
+                "reward": reward,
+            })
+
+        result = {
+            "challenge_id": challenge["id"],
+            "title": challenge["title"],
+            "prompt": challenge["prompt"],
+            "correct_index": challenge["correct_index"],
+            "correct_answer": challenge["options"][challenge["correct_index"]],
+            "explanation": challenge["explanation"],
+            "reward": CHALLENGE_REWARD,
+            "answers": answers,
+        }
+        db.execute(
+            "UPDATE match_rounds SET challenge_result_json = ? "
+            "WHERE match_id = ? AND round_no = ?",
+            (json.dumps(result, ensure_ascii=False), match_id, round_no),
+        )
+        db.execute(
+            "UPDATE matches SET deadline_at = ?, revision = revision + 1, updated_at = ? "
+            "WHERE id = ?",
+            (now + ACTION_SECONDS, now, match_id),
+        )
+
+    def submit_challenge(
+        self,
+        invite_code: str,
+        player_id: str,
+        request_id: Any,
+        answer_index: Any,
+    ) -> Dict[str, Any]:
+        code = _normalize_code(invite_code)
+        request_id = self._new_request_id(request_id)
+        if isinstance(answer_index, bool) or not isinstance(answer_index, int):
+            raise InvalidInput("اختر إجابة من الخيارات المعروضة.")
+        now = int(time.time())
+
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            match = self._room_match(db, code, active_only=True)
+            self._authorize(db, match["id"], player_id)
+            self._advance_expired(db, match, now)
+            match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
+            round_row = db.execute(
+                "SELECT challenge_json, challenge_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            challenge = self._round_challenge(db, match["id"], match["round_no"])
+
+            existing = db.execute(
+                "SELECT * FROM challenge_answers WHERE match_id = ? AND round_no = ? AND player_id = ?",
+                (match["id"], match["round_no"], player_id),
+            ).fetchone()
+            if existing is not None:
+                same = (
+                    existing["request_id"] == request_id
+                    and existing["answer_index"] == answer_index
+                )
+                if same:
+                    db.commit()
+                    return self.get_state(code, player_id)
+                raise ActionLocked("تم قفل إجابتك لهذا التحدي.")
+
+            if round_row["challenge_result_json"]:
+                raise MatchNotActive("انتهى وقت التحدي وتم كشف الإجابات.")
+            if match["phase"] != "actions":
+                raise MatchNotActive("مرحلة التحدي غير مفتوحة الآن.")
+            if not 0 <= answer_index < len(challenge["options"]):
+                raise InvalidInput("الإجابة المختارة غير موجودة ضمن الخيارات.")
+
+            db.execute(
+                "INSERT INTO challenge_answers "
+                "(match_id, round_no, player_id, answer_index, request_id, submitted_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (match["id"], match["round_no"], player_id, answer_index, request_id, now),
+            )
+            submitted = db.execute(
+                "SELECT COUNT(*) AS count FROM challenge_answers WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()["count"]
+            total = db.execute(
+                "SELECT COUNT(*) AS count FROM match_players WHERE match_id = ?",
+                (match["id"],),
+            ).fetchone()["count"]
+            if submitted >= total:
+                self._resolve_challenge(db, match, now)
+            else:
+                db.execute(
+                    "UPDATE matches SET revision = revision + 1, updated_at = ? WHERE id = ?",
+                    (now, match["id"]),
+                )
+            db.commit()
+
+        return self.get_state(code, player_id)
 
     def _insert_timeout_passes(self, db: sqlite3.Connection, match: sqlite3.Row, now: int) -> None:
         db.execute(
@@ -572,6 +748,12 @@ class MatchEngine:
             self._authorize(db, match["id"], player_id)
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
+            round_progress = db.execute(
+                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            if not round_progress or not round_progress["challenge_result_json"]:
+                raise MatchNotActive("أكمل التحدي أولًا؛ ستُفتح الحركات بعد كشف الإجابات.")
             existing = db.execute(
                 "SELECT * FROM round_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
                 (match["id"], match["round_no"], player_id),
@@ -747,7 +929,14 @@ class MatchEngine:
 
         phase = match["phase"]
         if phase == "actions":
-            self._resolve_actions(db, match, now)
+            round_progress = db.execute(
+                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            if not round_progress or not round_progress["challenge_result_json"]:
+                self._resolve_challenge(db, match, now)
+            else:
+                self._resolve_actions(db, match, now)
             return
         if phase == "revenge":
             self._resolve_revenge(db, match, now)
@@ -765,16 +954,22 @@ class MatchEngine:
 
         previous_event = self._round_event(db, match["id"], match["round_no"])
         next_event = self._next_round_event(previous_event["id"])
+        previous_challenge = self._round_challenge(db, match["id"], match["round_no"])
+        next_challenge = self._next_round_challenge(previous_challenge["id"])
         next_round = match["round_no"] + 1
         db.execute(
             "UPDATE matches SET round_no = ?, phase = 'actions', deadline_at = ?, "
             "revision = revision + 1, updated_at = ? WHERE id = ?",
-            (next_round, now + ACTION_SECONDS, now, match["id"]),
+            (next_round, now + CHALLENGE_SECONDS, now, match["id"]),
         )
         db.execute(
             "INSERT OR IGNORE INTO match_rounds "
-            "(match_id, round_no, created_at, event_json) VALUES (?, ?, ?, ?)",
-            (match["id"], next_round, now, json.dumps(next_event, ensure_ascii=False)),
+            "(match_id, round_no, created_at, event_json, challenge_json) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                match["id"], next_round, now, json.dumps(next_event, ensure_ascii=False),
+                json.dumps(next_challenge, ensure_ascii=False),
+            ),
         )
 
     def submit_revenge(
@@ -876,17 +1071,48 @@ class MatchEngine:
                 (match["id"],),
             ).fetchall()
             round_row = db.execute(
-                "SELECT public_result_json, event_json FROM match_rounds "
-                "WHERE match_id = ? AND round_no = ?",
+                "SELECT public_result_json, event_json, challenge_json, challenge_result_json "
+                "FROM match_rounds WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
             result = self._json_load(round_row["public_result_json"] if round_row else None, None)
+            challenge_data = self._json_load(
+                round_row["challenge_json"] if round_row else None, ROUND_CHALLENGES[0]
+            )
+            challenge_result = self._json_load(
+                round_row["challenge_result_json"] if round_row else None, None
+            )
+            if not isinstance(challenge_data, dict):
+                challenge_data = dict(ROUND_CHALLENGES[0])
+            public_challenge = {
+                "id": challenge_data["id"],
+                "family": challenge_data["family"],
+                "title": challenge_data["title"],
+                "prompt": challenge_data["prompt"],
+                "options": list(challenge_data["options"]),
+                "reward": CHALLENGE_REWARD,
+            }
+            public_phase = (
+                "challenge"
+                if match["status"] == "active"
+                and match["phase"] == "actions"
+                and challenge_result is None
+                else match["phase"]
+            )
             round_event = self._json_load(
                 round_row["event_json"] if round_row else None, ROUND_EVENTS["opening"]
             )
             if not isinstance(round_event, dict):
                 round_event = dict(ROUND_EVENTS["opening"])
 
+            challenge_count = db.execute(
+                "SELECT COUNT(*) AS count FROM challenge_answers WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()["count"]
+            my_challenge = db.execute(
+                "SELECT 1 FROM challenge_answers WHERE match_id = ? AND round_no = ? AND player_id = ?",
+                (match["id"], match["round_no"], player_id),
+            ).fetchone()
             action_count = db.execute(
                 "SELECT COUNT(*) AS count FROM round_actions WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
@@ -931,7 +1157,7 @@ class MatchEngine:
             "ok": True,
             "match_id": match["id"],
             "status": match["status"],
-            "phase": match["phase"],
+            "phase": public_phase,
             "round": match["round_no"],
             "total_rounds": match["total_rounds"],
             "deadline_at": match["deadline_at"],
@@ -940,9 +1166,14 @@ class MatchEngine:
             "player_count": len(public_players),
             "players": public_players,
             "round_event": round_event,
+            "challenge": public_challenge,
+            "challenge_result": challenge_result,
+            "challenge_answers_submitted": challenge_count,
+            "challenge_answer_total": len(public_players),
             "actions_submitted": action_count,
             "action_total": len(public_players),
             "private": {
+                "challenge_submitted": bool(my_challenge),
                 "action_submitted": bool(my_action),
                 "revenge_submitted": bool(revenge_submitted),
                 "revenge_charges": my_row["revenge_charges"],
