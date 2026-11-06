@@ -17,7 +17,7 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The eight-round match engine now includes a real challenge phase and the first chaos expansion.** Each round opens with one of eight Arabic family-friendly multiple-choice challenges (25 seconds; +2 coins for a correct answer, no penalty for a wrong or missing answer). Answers remain private until everyone answers or time expires. The round then proceeds to secret steal, guard, wager, or pass choices, followed by reveal and bounded revenge. Five server-selected event cards also modify later rounds. Remaining work includes bluff/trap actions, the larger event catalogue (Black Box, Bomb, Temporary King, Auction, Court), broader challenge families, comeback tuning, match statistics, and the final visual/audio layer.
+**The eight-round match engine now uses dynamically generated family challenges.** Questions come from eight formats: arithmetic, number patterns, time calculations, memory, odd-one-out, and comparing sums. Numbers, sequences, words, and answer choices vary. A correct answer gives +2 coins; a wrong or missing answer costs nothing. A permanent SQLite history records each complete question and its choice set, so the same challenge cannot appear again in another match on that database, even after a restart or rematch. Existing fixed-deck questions are imported into that history during upgrade. The UI also shows a five-step round roadmap with exact timings and explains when revenge is skipped. Five server-selected event cards continue to modify later rounds. Remaining work includes bluff/prediction/duel challenges, the larger event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback tuning, match statistics, and the final visual/audio layer.
 
 ## Fixed product requirements
 
@@ -39,6 +39,8 @@ Cloudflare is only a transport path. The game rules, room data, sessions, and SQ
 The default database path is outside the repository:
 
     ~/.local/share/chaos-family/chaos.sqlite3
+
+The used-question history is stored in this same database and survives server restarts and new matches. Deleting or replacing this SQLite file also deletes the no-repeat history; keep it intact when upgrading the game.
 
 No router port forwarding, Wi-Fi hotspot, or public game hosting is required. The laptop and phones need internet access while a Quick Tunnel is active.
 
@@ -96,13 +98,13 @@ The suite covers:
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
 - Three/four-player match start, ready validation, and active-room membership lock.
-- Private challenge answers, challenge rewards and timeouts, secret action privacy, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
+- Private challenge answers, generated question diversity, permanent no-repeat history across matches and restarts, legacy-question migration, challenge rewards and timeouts, secret action privacy, clear round-stage UI, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **52 automated tests**. The latest GitHub Actions run passed: [run 83 — 52 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264954447). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **58 automated tests**. The latest fully verified GitHub Actions run passed: [run 96 — 58 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42266496009). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
-Automated checks do not replace physical testing. The owner has confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6; the newly added quiz panel and reveal screen still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, and through all eight rounds on three and four devices.
+Automated checks do not replace physical testing. The owner has confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6; the generated-question panel, reveal screen, and new round roadmap still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, and through all eight rounds on three and four devices.
 
 ## Security notes
 
