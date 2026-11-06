@@ -1,6 +1,6 @@
 # CHAOS FAMILY BATTLE
 
-A fast, chaotic browser-based family game for exactly four players.
+A fast, chaotic browser-based family game for three or four players.
 
 > Trust no one. Revenge everyone.
 
@@ -17,11 +17,11 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The full match engine is not implemented yet.** The current page creates rooms and synchronizes the lobby. The next major build stage is the actual match/round engine, followed by the complete actions, challenges, events, revenge, scoring, and final results.
+**The base eight-round match engine is now implemented with secret simultaneous actions, coin transfers, timed phases, and bounded counterstrike revenge. The full challenge library, random event catalogue, remaining action families, and final visual/audio polish are still being built.** The current page creates rooms and synchronizes the lobby. The next major build stage is the actual match/round engine, followed by the complete actions, challenges, events, revenge, scoring, and final results.
 
 ## Fixed product requirements
 
-- Exactly four human players.
+- Three or four human players; four is the maximum and three is enough to start.
 - Linux Mint laptop is player 1 and the authoritative server, not a referee or privileged player.
 - Two Android phones and one iPhone 4S running iOS 9.3.6.
 - Arabic-first interface with right-to-left layout.
@@ -63,7 +63,7 @@ The launcher starts the local Python server and Cloudflare Quick Tunnel, then pr
 
 Keep the terminal open. Open that same URL on the laptop and all three phones.
 
-The first player enters a name and creates a room. The page shows a 10-character room code and a shareable invitation link. The other three players open the same temporary URL, enter their names and the room code, and join. All four seats and their readiness states update automatically.
+The first player enters a name and creates a room. The page shows a 10-character room code and a shareable invitation link. Two or three more players can join. The match starts when all three or four participants are connected and ready; a fourth player is optional.
 
 Press Ctrl+C in the launcher terminal to stop both the tunnel and the local server.
 
