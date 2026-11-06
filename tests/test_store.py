@@ -1,5 +1,6 @@
 import concurrent.futures
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -108,6 +109,24 @@ class GameStoreTests(unittest.TestCase):
         GameStore(str(custom_db))
         self.assertEqual(custom_dir.stat().st_mode & 0o777, 0o755)
         self.assertEqual(custom_db.stat().st_mode & 0o777, 0o600)
+
+
+    def test_all_ready_requires_every_player_to_be_connected(self):
+        created = self.store.create_room("A")
+        tokens = [created["session_token"]]
+        for name in ("B", "C", "D"):
+            tokens.append(self.store.join_room(created["invite_code"], name)["session_token"])
+        for token in tokens:
+            room = self.store.set_ready(created["invite_code"], token, True)
+        self.assertTrue(room["all_ready"])
+        with self.store._connect() as db:
+            db.execute(
+                "UPDATE players SET last_seen = ? WHERE seat = 4",
+                (int(time.time()) - 60,),
+            )
+        room = self.store.get_room(created["invite_code"])
+        self.assertFalse(room["all_ready"])
+        self.assertFalse(room["players"][3]["connected"])
 
 
 if __name__ == "__main__":
