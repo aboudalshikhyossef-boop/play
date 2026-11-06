@@ -156,8 +156,8 @@ class HTTPAPITests(unittest.TestCase):
                 {"ready": True}, cookie_value
             )
             self.assertEqual(status, 200)
-            self.assertTrue(ready["room"]["all_ready"])
 
+        self.assertTrue(ready["room"]["all_ready"])
         status, match, _ = self.request(
             "POST", "/api/rooms/%s/start" % created["invite_code"], {}, creator_cookie
         )
