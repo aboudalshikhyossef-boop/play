@@ -1,6 +1,6 @@
 # Compatibility Test Record
 
-This file distinguishes owner-confirmed physical-device results from automated tests. A device is not marked fully passed until the current application has been tested on that exact device/browser.
+This file distinguishes owner-confirmed physical-device results from automated tests. Owner feedback is recorded as reported; it is not presented as an independent test by the development environment.
 
 ## Environment
 
@@ -8,7 +8,7 @@ This file distinguishes owner-confirmed physical-device results from automated t
 - Python 3: installed; exact laptop version is not yet recorded.
 - Access path: Cloudflare Quick Tunnel to a localhost-only Python server.
 - Client devices: two Android phones and iPhone 4S / iOS 9.3.6 Safari.
-- Current application: room/lobby foundation plus the eight-round core match engine. The challenge/event catalogue and full visual/audio systems remain in progress.
+- Current application: room/lobby foundation, eight-round match engine, beginner rules guide, and five event-card effects. The broader challenge catalogue and full visual/audio systems remain in progress.
 
 ## Network history
 
@@ -22,9 +22,9 @@ The Android devices could join the laptop hotspot, but the page still did not lo
 
 ### Cloudflare Quick Tunnel
 
-The owner confirmed that the basic connection, room creation, and room joining flows work, and specifically confirmed the page/lobby connection on the physical iPhone 4S using Safari 9.3.6 through a temporary HTTPS Quick Tunnel URL.
+The owner confirmed that the basic connection, room creation, room joining, and lobby flows work through the temporary HTTPS Quick Tunnel URL. On 2026-11-06 the owner additionally reported that the current game interface and match controls work across the connected phones, and that the iPhone 4S / Safari 9.3.6 runs the game correctly.
 
-This confirms a network page load through the tunnel. It does not by itself confirm all touch, layout, orientation, or current lobby behavior.
+This is owner-reported physical-device feedback. It does not independently verify every orientation, narrow viewport, disconnect/reconnect case, or a complete eight-round run.
 
 ## Diagnostic message behavior
 
@@ -36,15 +36,15 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 | Device | Browser | Tunnel page load | Current lobby | Shared message feed | Viewport/layout |
 |---|---|---|---|---|---|
-| Linux Mint laptop | Desktop browser | Owner confirmed local page | Pending physical use | Pending physical check | Pending |
-| Android phone 1 | Browser not recorded | Owner confirmed basic connection/join flow | Lobby confirmed | Match arena pending | Detailed viewport pending |
-| Android phone 2 | Browser not recorded | Owner confirmed basic connection/join flow | Lobby confirmed | Match arena pending | Detailed viewport pending |
-| iPhone 4S / iOS 9.3.6 | Safari | Owner confirmed compatibility page | Lobby confirmed | Match arena pending | Portrait/landscape details pending |
-| iPhone 4S / iOS 9.3.6 | Safari landscape | Not recorded | Pending | Pending | Pending |
+| Linux Mint laptop | Firefox (screenshot) | Owner confirms current app | Owner confirms match UI works | Not rechecked in this session | Detailed viewport pending |
+| Android phone 1 | Browser not recorded | Owner confirms current app | Owner confirms match UI works | Not rechecked in this session | Detailed viewport pending |
+| Android phone 2 | Browser not recorded | Owner confirms current app | Owner confirms match UI works | Not rechecked in this session | Detailed viewport pending |
+| iPhone 4S / iOS 9.3.6 | Safari | Owner confirms current app | Owner confirms match UI works correctly | Not rechecked in this session | Orientation details pending |
+| iPhone 4S / iOS 9.3.6 | Safari landscape | Not separately recorded | Not separately recorded | Not separately recorded | Pending |
 
 ## Automated checks run during development
 
-The repository test suite currently contains 41 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, match actions, revenge, deadlines, and a complete eight-round lifecycle. The latest GitHub Actions run passed: [run 49 — 41 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42259084485).
+The repository test suite now contains 48 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest CI run for these changes will be recorded after it completes.
 
 Local checks also include:
 - Python compileall.
@@ -55,7 +55,7 @@ These checks were run in the development container. They are not a substitute fo
 
 ## Match-engine verification status
 
-The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private selections, action idempotency, guard, steal, wager, revenge limits, timeout passes, and the complete eight-round lifecycle. The newly added game arena has not yet been visually tested on the physical iPhone or Android devices.
+The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private selections, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the match arena and controls are working across the connected phones, including the iPhone 4S.
 
 ## Required acceptance criteria
 
