@@ -2,7 +2,7 @@
 
 ## Status
 
-The first real application foundation is implemented. It replaces the one-way echo demonstration with a central room service and a synchronized four-seat lobby. The game engine itself is a later milestone; this stage does not pretend that a full match is playable yet.
+The first real application foundation is implemented. It replaces the one-way echo demonstration with a central room service and a synchronized three-or-four-player lobby. The game engine itself is a later milestone; this stage does not pretend that a full match is playable yet.
 
 ## One server, one database
 
@@ -20,16 +20,17 @@ The application creates its own data folder with restricted permissions and atte
 
 ## Room rules
 
-- Exactly four seats exist in a room.
+- A room has a maximum of up to four seats; three or four players may start a match.
 - The creator automatically occupies one seat.
 - Invite codes contain 10 characters from an alphabet that avoids visually ambiguous characters.
 - Duplicate player names are rejected within a room, ignoring case.
 - A fifth player receives a room-full response.
+- The lobby becomes startable when three or four occupied players are all connected and ready.
 - A room is considered available for 24 hours from creation.
 - A player who leaves releases their seat; the room code remains usable until expiry.
 - Disconnected players retain their seat so a temporary network interruption does not create a duplicate player.
 - The connection indicator is based on recent server activity, not a client-side claim.
-- All four players must be present, recently connected, and ready before the lobby reports all-ready.
+- All three or four occupied players must be recently connected and ready before the lobby reports all-ready.
 
 No start-match endpoint is exposed until the authoritative round engine is implemented and tested.
 
