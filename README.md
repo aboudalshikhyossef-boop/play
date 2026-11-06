@@ -6,7 +6,7 @@ A fast, chaotic browser-based family game for three or four players.
 
 ## Current project status
 
-The network test is complete enough to proceed: the owner confirmed that a Cloudflare Quick Tunnel URL opens on iPhone 4S / iOS 9.3.6 Safari.
+The owner reports that the game now runs across the connected laptop and phones, including the iPhone 4S / iOS 9.3.6 Safari. The current match arena has been used successfully on those devices; detailed orientation and edge-case acceptance remains tracked separately.
 
 The first real application foundation is now in the repository:
 - One authoritative Python server on the Linux Mint laptop.
@@ -17,7 +17,7 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The base eight-round match engine is implemented.** It supports secret simultaneous actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, and final ranking. The full challenge library, additional bluff/trap actions, random event deck, comeback tuning, match statistics, and complete visual/audio polish remain to be integrated.
+**The eight-round match engine now includes the first chaos expansion.** It supports secret simultaneous actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, final ranking, a beginner-friendly in-game rules guide, and five server-selected round-event cards. The remaining work includes the larger challenge library, bluff/trap actions, more event types (Black Box, Bomb, Temporary King, Auction, Court), comeback tuning, match statistics, and the final visual/audio layer.
 
 ## Fixed product requirements
 
@@ -96,13 +96,13 @@ The suite covers:
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
 - Three/four-player match start, ready validation, and active-room membership lock.
-- Secret action privacy, action locking, guard, steal, wager, counterstrike revenge, deadlines, and full eight-round lifecycle.
+- Secret action privacy, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
 A GitHub Actions workflow also checks Python tests, shell syntax, and JavaScript syntax.
 
-Automated checks do not replace physical testing. The owner has confirmed that room creation, joining, and the lobby connection work on the target devices, including iPhone 4S Safari 9.3.6. The newly added game arena and match controls still need a physical-device test, including iPhone portrait/landscape and all action buttons.
+Automated checks do not replace physical testing. The owner reports that the current game and match controls work across the connected phones, including iPhone 4S Safari 9.3.6. A separate acceptance pass is still useful for 320 CSS px, portrait/landscape, disconnect/reconnect, and completing all eight rounds on three and four devices.
 
 ## Security notes
 
