@@ -36,6 +36,10 @@ GUARD_COST = 1
 MAX_WAGER = 3
 REVENGE_CHARGES = 2
 REVENGE_AMOUNT = 1
+EVENT_SECONDS = 20
+INTERACTIVE_EVENT_IDS = frozenset((
+    "black_box", "bomb", "secret_auction", "court",
+))
 
 # Round one deliberately uses the base rules as a gentle tutorial. Every later
 # round receives one server-selected event, persisted so all devices see the
@@ -76,6 +80,36 @@ ROUND_EVENTS = {
         "title": "رهان عالي المخاطرة",
         "description": "احتمال الفوز يبقى 50/50؛ عند الفوز تربح صافي ضعفي مبلغ الرهان، وعند الخسارة تفقد المبلغ نفسه.",
         "effect": "راهن بقدر ما تتحمل خسارته؛ أقصى رهان ما زال 3 عملات.",
+    },
+    "black_box": {
+        "id": "black_box",
+        "title": "الصندوق الأسود",
+        "description": "اختر صندوقًا واحدًا من ثلاثة دون معرفة محتواه. قد تحصل على عملتين، أو حماية مجانية، أو تخسر عملة واحدة.",
+        "effect": "كل لاعب يختار سرًا؛ تكشف محتويات الصناديق للجميع بعد انتهاء الاختيارات.",
+    },
+    "bomb": {
+        "id": "bomb",
+        "title": "القنبلة المتنقلة",
+        "description": "تبدأ القنبلة مع لاعب محدد. اختر الاحتفاظ بها أو تمريرها إلى لاعب آخر. تستمر حتى يحتفظ بها شخص؛ حاملها الأخير يخسر حتى عملتين.",
+        "effect": "قرارات التمرير سرية ومتزامنة. إذا عادت القنبلة إلى لاعب مرّ عليها سابقًا تنفجر عند آخر حامل.",
+    },
+    "temporary_king": {
+        "id": "temporary_king",
+        "title": "الملك المؤقت",
+        "description": "يتوّج الخادم صاحب أقل رصيد. يحصل الملك على عملة مجانية، وحماية مجانية، ويمكنه محاولة سرقة حتى 3 عملات في هذه الجولة.",
+        "effect": "اللقب لجولة واحدة فقط، ويتغير اختيار الملك حسب الأرصدة مع تدوير كسر التعادل.",
+    },
+    "secret_auction": {
+        "id": "secret_auction",
+        "title": "المزاد السري",
+        "description": "قدّم عرضًا سريًا من صفر إلى 3 عملات. أعلى عرض يفوز بحماية مجانية لهذه الجولة ويدفع عرضه إلى بنك اللعبة.",
+        "effect": "عند التعادل يُحسم الفوز بأولوية مقعد تتغير كل جولة. إذا كانت كل العروض صفرًا فلا فائز.",
+    },
+    "court": {
+        "id": "court",
+        "title": "المحكمة",
+        "description": "صوّت سرًا على لاعب آخر أو امتنع. إذا حصل لاعب على أغلبية مطلقة من أصوات جميع اللاعبين، يدفع عملة واحدة إلى بنك اللعبة.",
+        "effect": "لا يمكنك التصويت لنفسك. التعادل أو غياب الأغلبية يعني إسقاط القضية.",
     },
 }
 
@@ -204,6 +238,24 @@ class MatchEngine:
                     FOREIGN KEY (match_id, player_id) REFERENCES match_players(match_id, player_id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS event_actions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    match_id TEXT NOT NULL,
+                    round_no INTEGER NOT NULL,
+                    player_id TEXT NOT NULL,
+                    choice_type TEXT NOT NULL CHECK (
+                        choice_type IN ('box', 'keep', 'pass', 'bid', 'vote', 'abstain')
+                    ),
+                    target_player_id TEXT,
+                    amount INTEGER NOT NULL DEFAULT 0,
+                    choice_value INTEGER,
+                    request_id TEXT NOT NULL,
+                    submitted_at INTEGER NOT NULL,
+                    UNIQUE (match_id, round_no, player_id),
+                    UNIQUE (match_id, player_id, request_id),
+                    FOREIGN KEY (match_id, player_id) REFERENCES match_players(match_id, player_id) ON DELETE CASCADE
+                );
+
                 CREATE TABLE IF NOT EXISTS challenge_history (
                     fingerprint TEXT PRIMARY KEY,
                     prompt TEXT NOT NULL,
@@ -241,6 +293,8 @@ class MatchEngine:
                 db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_json TEXT")
             if "challenge_result_json" not in round_columns:
                 db.execute("ALTER TABLE match_rounds ADD COLUMN challenge_result_json TEXT")
+            if "event_result_json" not in round_columns:
+                db.execute("ALTER TABLE match_rounds ADD COLUMN event_result_json TEXT")
 
             # Backfill old fixed-deck questions so upgrading an existing game
             # database does not make previously played prompts eligible again.
