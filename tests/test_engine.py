@@ -81,6 +81,7 @@ class MatchEngineTests(unittest.TestCase):
         self.assertEqual(state["phase"], "actions")
         self.assertEqual(state["player_count"], 3)
         self.assertEqual([p["coins"] for p in state["players"]], [10, 10, 10])
+        self.assertNotEqual(state["challenge"]["mode"], "duel")
 
     def test_four_players_can_start_a_match(self):
         _code, _tokens, state = self.start(4)
@@ -634,6 +635,9 @@ class MatchEngineTests(unittest.TestCase):
             self.assertEqual(state["challenge_result"]["duel_results"][0]["reward"], 3)
             self.assertEqual(state["challenge_result"]["answers"][0]["reward"], 3)
             self.assertEqual(state["challenge_result"]["answers"][2]["reward"], 2)
+            for duel_result in state["challenge_result"]["duel_results"]:
+                self.assertNotIn("player_ids", duel_result)
+                self.assertNotIn("winner_id", duel_result)
 
             for index, player_id in enumerate(player_ids):
                 state = self.engine.submit_action(
