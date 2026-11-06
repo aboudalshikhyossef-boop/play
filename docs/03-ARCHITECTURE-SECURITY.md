@@ -1,11 +1,30 @@
 # Architecture and Local-Network Security
 
 ## 1. Deployment model
-The Linux Mint laptop runs the game server and also opens the ordinary player interface for its owner. Three other clients join from two Android phones and the iPhone 4S.
 
-The router provides local network connectivity only. The game does not require public hosting, cloud services, or internet access during a match.
+The Linux Mint laptop runs the game server, creates the private Wi-Fi access point, and also opens the ordinary player interface for its owner. Three other clients join from two Android phones and the iPhone 4S.
 
-## 2. Proposed stack
+The home router is not part of the gameplay network. The laptop's Wi-Fi adapter provides the local access point and the laptop serves the web application. No public hosting, cloud services, or internet connection is required during a match.
+
+## 2. Laptop-hosted hotspot
+
+The intended network profile is:
+- NetworkManager-managed Wi-Fi access point.
+- SSID: `CHAOS-FAMILY`.
+- 2.4 GHz band for compatibility with iPhone 4S.
+- WPA2-Personal / WPA-PSK with RSN/CCMP.
+- IPv4 shared mode, with the laptop at `10.42.0.1/24`.
+- DHCP/DNS supplied by NetworkManager to joined devices.
+- Game server bound only to `10.42.0.1`.
+
+The startup script checks that the Wi-Fi hardware/driver advertises AP mode before activating the profile. Not every laptop adapter supports AP mode. If it does not, use a compatible USB Wi-Fi adapter or retain a router-based LAN as a fallback.
+
+When one Wi-Fi adapter changes from client mode to AP mode, it may disconnect from the home Wi-Fi. That is expected; the match does not require internet access. A separate Ethernet uplink is optional.
+
+See [the hotspot decision record](06-HOTSPOT-DECISION.md).
+
+## 3. Proposed stack
+
 Initial choices, subject to compatibility verification:
 - Front end: semantic HTML, CSS, and conservative JavaScript compatible with iOS 9 Safari.
 - Local server: Python 3 with a small HTTP application; Flask is the current proposal.
@@ -17,37 +36,42 @@ Initial choices, subject to compatibility verification:
 
 Pin and document tested dependency versions after checking the actual Linux Mint and Python versions. Do not assume newest package releases support the installed environment.
 
-## 3. Server-authoritative model
+## 4. Server-authoritative model
+
 The server is the single source of truth for player seats and sessions, match and round state, timers and deadlines, secret action submissions, random event selection, coin balances, action eligibility and costs, revenge charges and outcomes, and public/private information.
 
 Clients submit requested actions, not claimed outcomes or balances. The server validates every request and calculates all results.
 
 Each action should include a unique request identifier so retries after network interruption do not apply the same action twice. State updates should carry a monotonically increasing revision or sequence number so clients can detect stale state.
 
-## 4. Local invitation flow
-1. Host starts the local server.
-2. Server binds only to the laptop's selected LAN IPv4 address, not all interfaces by default.
+## 5. Local invitation flow
+
+1. Host starts the local hotspot and server.
+2. The server binds only to `10.42.0.1`.
 3. Host creates a match and receives a random, short-lived invite code.
-4. Application creates a LAN URL containing the host LAN address, port, and invite code.
-5. Other players open the link while connected to the same home LAN.
+4. Application creates a LAN URL containing the hotspot address, port, and invite code.
+5. Other players join the saved `CHAOS-FAMILY` network and open the invitation link.
 6. Each player claims one available seat and receives a private session token.
 7. Four players join and ready up; only then can the match begin.
 
-The invite URL is a convenience, not a security boundary. Rate-limit attempts, expire unused invitations, and validate seat/session ownership.
+The Wi-Fi password and game invite code are different things: the former joins the private network; the latter joins a game room. Neither is to be committed to Git. Rate-limit game invite attempts, expire unused invitations, and validate seat/session ownership.
 
-## 5. Network boundary and firewall
-- Do not configure router port forwarding for the game.
+## 6. Firewall and network boundary
+
+- Do not configure router port forwarding.
 - Do not use public tunnels or reverse proxies.
-- Bind the server to the intended private LAN interface/address.
-- Configure UFW to allow the game port only from the trusted home subnet/interface as appropriate.
+- Keep the server bound to `10.42.0.1`, not every interface.
+- Do not disable UFW.
+- If UFW is active, allow only the required TCP game port from `10.42.0.0/24` on the Wi-Fi AP interface.
 - Do not expose a general-purpose admin endpoint to player clients.
-- Use a stable DHCP reservation for the laptop if desired.
-- Confirm Wi-Fi client isolation is disabled on the trusted home network.
-- Do not assume the same SSID guarantees peer-to-peer connectivity.
+- Stop the hotspot when the family session is finished.
 
-A LAN-only HTTP service is not encrypted. Use it only on a trusted home network. Do not put passwords or sensitive personal data in game requests. Reassess transport security if the threat model changes.
+NetworkManager shared mode supplies client addressing and may NAT traffic to a current default uplink if one exists. The game itself only needs local access to the server; internet sharing is not a game requirement.
 
-## 6. Session and input safety
+HTTP on the hotspot is not encrypted. WPA2 protects access to the Wi-Fi network but does not encrypt HTTP requests after a device has joined. Only share the Wi-Fi password with trusted players.
+
+## 7. Session and input safety
+
 - Generate high-entropy session tokens on the server.
 - Keep tokens out of public lobby state, logs, screenshots, and repository files.
 - Use appropriate cookie flags where supported and validate session ownership on every action.
@@ -58,22 +82,29 @@ A LAN-only HTTP service is not encrypted. Use it only on a trusted home network.
 - Avoid storing unnecessary personal information.
 - Provide a clear way to reset local match data.
 
-## 7. Data storage
+## 8. Data storage
+
 SQLite stores only what the game needs: match state/history, player display names and selected avatars/colors, coin ledger and action results, event/challenge references, and minimal session data required for reconnect.
 
-Do not commit database files, real player history, session tokens, invite codes, or local configuration to Git.
+Do not commit database files, real player history, session tokens, invite codes, hotspot passwords, or local configuration to Git.
 
-## 8. Public repository hygiene
-The repository is public at the time of writing. Never commit secrets or real local network addresses. Include .gitignore before implementation. Keep runtime database and logs outside tracked source files. Use example configuration with placeholders only. Review changes before pushing. Do not put personal details in test fixtures.
+## 9. Public repository hygiene
 
-## 9. Recovery and lifecycle
+The repository is public at the time of writing. Never commit secrets or real local network addresses. Include .gitignore before implementation. Keep runtime database, logs, and local hotspot credentials outside tracked source files. Use example configuration with placeholders only. Review changes before pushing. Do not put personal details in test fixtures.
+
+## 10. Recovery and lifecycle
+
 Persist enough state to recover from browser refresh or temporary Wi-Fi interruption. Reconnect must restore the correct player seat without duplicating the player. The server decides whether a deadline elapsed while a client was disconnected. Define host shutdown and graceful match termination. Do not silently resume a stale match after deliberate reset.
 
-## 10. Operational checks
+The hotspot profile and locally generated Wi-Fi password persist between sessions so trusted devices can remember the network. The hotspot itself is activated only when the game startup command is run and is stopped explicitly after testing or playing.
+
+## 11. Operational checks
+
 Before each play session:
-- Confirm laptop is on the trusted home LAN.
-- Confirm server is bound to the expected LAN address.
-- Confirm firewall rule scope.
-- Confirm no router port-forwarding rule exists for the game.
-- Confirm four devices can reach the local page.
-- Confirm laptop local IP and invite link are current.
+- Confirm the laptop Wi-Fi adapter supports AP mode.
+- Start the CHAOS hotspot using the project startup script.
+- Confirm the hotspot IP is `10.42.0.1/24`.
+- Connect all three phones to `CHAOS-FAMILY`.
+- Confirm the server is bound only to `10.42.0.1`.
+- Confirm firewall scope and no router port-forwarding rule.
+- Confirm all four devices can reach the local page.
