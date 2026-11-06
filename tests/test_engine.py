@@ -1,5 +1,6 @@
 import concurrent.futures
 import json
+import re
 from contextlib import closing
 import tempfile
 import time
@@ -556,6 +557,104 @@ class MatchEngineTests(unittest.TestCase):
         different = challenge_fingerprint(prompt, ["37", "35", "38"])
         self.assertEqual(first, reordered)
         self.assertNotEqual(first, different)
+
+    def test_bluff_challenge_has_exactly_one_false_equation(self):
+        challenge = generate_challenge(mode="bluff")
+        equations = challenge["prompt"].splitlines()[1:]
+        self.assertEqual(challenge["mode"], "bluff")
+        self.assertEqual(len(equations), 3)
+        false_indexes = []
+        for index, line in enumerate(equations):
+            expression = line.split(") ", 1)[1]
+            left, shown = expression.split(" = ")
+            first, second = [int(value.strip()) for value in left.split(" + ")]
+            if first + second != int(shown):
+                false_indexes.append(index)
+        self.assertEqual(false_indexes, [challenge["correct_index"]])
+        self.assertEqual(len(false_indexes), 1)
+
+    def test_prediction_challenge_reveals_valid_server_generated_dice_sum(self):
+        challenge = generate_challenge(mode="prediction")
+        roll = re.search(r"كانت النردتان (\\d+) و(\\d+)", challenge["explanation"])
+        self.assertIsNotNone(roll)
+        dice_sum = int(roll.group(1)) + int(roll.group(2))
+        self.assertEqual(challenge["mode"], "prediction")
+        self.assertEqual(challenge["options"][challenge["correct_index"]], str(dice_sum))
+        self.assertTrue(1 <= int(roll.group(1)) <= 6)
+        self.assertTrue(1 <= int(roll.group(2)) <= 6)
+
+    def test_duel_mode_is_only_generated_for_four_human_players(self):
+        with self.assertRaises(ValueError):
+            generate_challenge(player_count=3, mode="duel")
+        challenge = generate_challenge(player_count=4, mode="duel")
+        self.assertEqual(challenge["mode"], "duel")
+        for _ in range(80):
+            self.assertNotEqual(generate_challenge(player_count=3)["mode"], "duel")
+
+    def test_four_player_duel_scores_winner_draw_and_rotates_pairs(self):
+        code, tokens = self.create_ready_room(4)
+        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        first_challenge = generate_challenge(player_count=4, mode="duel")
+        second_challenge = generate_challenge(player_count=4, mode="duel")
+        while challenge_fingerprint(
+            second_challenge["prompt"], second_challenge["options"]
+        ) == challenge_fingerprint(first_challenge["prompt"], first_challenge["options"]):
+            second_challenge = generate_challenge(player_count=4, mode="duel")
+
+        with patch(
+            "server.engine.generate_challenge",
+            side_effect=[first_challenge, second_challenge],
+        ):
+            state = self.engine.start_match(code, player_ids[0])
+            self.assertEqual(state["phase"], "challenge")
+            self.assertEqual(state["challenge"]["mode"], "duel")
+            self.assertNotIn("duel_pairs", state["challenge"])
+            self.assertNotIn("correct_index", state["challenge"])
+
+            views = [self.engine.get_state(code, player_id) for player_id in player_ids]
+            self.assertEqual(
+                [view["challenge"]["duel_opponent"] for view in views],
+                ["Player 2", "Player 1", "Player 4", "Player 3"],
+            )
+            correct = first_challenge["correct_index"]
+            wrong = (correct + 1) % len(first_challenge["options"])
+            answers = [correct, wrong, correct, correct]
+            for index, player_id in enumerate(player_ids):
+                state = self.engine.submit_challenge(
+                    code, player_id, "duel-answer-%02d" % index, answers[index]
+                )
+
+            self.assertEqual(state["phase"], "actions")
+            self.assertEqual([player["coins"] for player in state["players"]], [13, 10, 12, 12])
+            self.assertEqual(
+                [duel["outcome"] for duel in state["challenge_result"]["duel_results"]],
+                ["first_won", "both_correct"],
+            )
+            self.assertEqual(state["challenge_result"]["duel_results"][0]["winner_name"], "Player 1")
+            self.assertEqual(state["challenge_result"]["duel_results"][0]["reward"], 3)
+            self.assertEqual(state["challenge_result"]["answers"][0]["reward"], 3)
+            self.assertEqual(state["challenge_result"]["answers"][2]["reward"], 2)
+
+            for index, player_id in enumerate(player_ids):
+                state = self.engine.submit_action(
+                    code, player_id, "duel-pass-%02d" % index, "pass"
+                )
+            with closing(self.store._connect()) as db:
+                db.execute(
+                    "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                    (int(time.time()) - 1, state["match_id"]),
+                )
+            next_round = self.engine.get_state(code, player_ids[0])
+            self.assertEqual(next_round["phase"], "challenge")
+            self.assertEqual(next_round["round"], 2)
+            self.assertEqual(next_round["challenge"]["mode"], "duel")
+            next_views = [
+                self.engine.get_state(code, player_id) for player_id in player_ids
+            ]
+            self.assertEqual(
+                [view["challenge"]["duel_opponent"] for view in next_views],
+                ["Player 3", "Player 4", "Player 1", "Player 2"],
+            )
 
 if __name__ == "__main__":
     unittest.main()
