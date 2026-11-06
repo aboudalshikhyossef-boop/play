@@ -6,25 +6,25 @@ CHAOS is a fast, social, unpredictable family competition built around bluffing,
 The goal is not simply to answer the most riddles. Players earn and lose in-game currency through challenge outcomes, secret actions, strategic decisions, random events, and counterplay.
 
 ## 2. Fixed player model
-There are exactly four human players.
+A match accepts three or four human players. Four is the maximum; three is the minimum. No fourth seat is fabricated when only three people are available.
 
 | Seat | Device | Role |
 |---|---|---|
 | 1 | Linux Mint laptop | Player and authoritative local host |
 | 2 | Android phone | Player |
 | 3 | Android phone | Player |
-| 4 | iPhone 4S / iOS 9.3.6 | Player |
+| 4 (optional) | iPhone 4S / iOS 9.3.6 or another supported browser | Optional fourth player |
 
 The laptop host is not a referee and receives no privileged gameplay information. Its player uses the same rules and information boundaries as everyone else. Host/server processes run separately from the laptop player's browser interface.
 
-A match cannot start until all four seats are occupied and all four players are ready.
+A match can start when three or four players are present, connected, and ready. The optional fourth seat may remain empty.
 
 ## 3. Player identity and lobby
 Each player joins with a display name, built-in avatar, distinct player color, and private session identity issued by the server.
 
 Names must be validated for length and safe display. Names are presentation labels, not authentication secrets. Duplicate names should be disallowed within one match or clearly disambiguated.
 
-The lobby displays four seats, connection state, readiness state, and the match invite code. It must not reveal private session tokens.
+The lobby displays up to four seats, connection state, readiness state, and the match invite code. Starting a match freezes membership until that match finishes. It must not reveal private session tokens.
 
 ## 4. Match economy
 - Each player starts with 10 coins (initial balancing value; tune during playtesting).
@@ -47,7 +47,7 @@ The rules must explain all costs, rewards, caps, and tie-breakers before a match
 8. Settlement: balances, effects, public events, and rankings are updated.
 9. Transition: next round begins after clients receive the settled state.
 
-Suggested match length: eight rounds; target duration approximately 12–18 minutes. Timings are design targets and must be playtested.
+A match contains eight rounds. The current engine timing is 60 seconds for secret action selection, 15 seconds for an eligible revenge window, and 10 seconds for the result display. These are initial implementation values and must be tuned through playtesting.
 
 ## 6. Secret actions
 Initial action families:
