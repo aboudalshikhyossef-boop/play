@@ -6,7 +6,7 @@ A fast, chaotic browser-based family game for three or four players.
 
 ## Current project status
 
-The owner reports that the game now runs across the connected laptop and phones, including the iPhone 4S / iOS 9.3.6 Safari. The current match arena has been used successfully on those devices; detailed orientation and edge-case acceptance remains tracked separately.
+The owner confirmed that the lobby and original match arena run across the connected laptop and phones, including the iPhone 4S / iOS 9.3.6 Safari. The timed challenge panel and answer-reveal UI were added after that report: they pass automated checks, but still need a fresh physical-device acceptance pass on the phones, especially the iPhone 4S.
 
 The first real application foundation is now in the repository:
 - One authoritative Python server on the Linux Mint laptop.
@@ -100,9 +100,9 @@ The suite covers:
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **52 automated tests**. The latest GitHub Actions run passed: [run 75 — 52 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264655578). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **52 automated tests**. The latest GitHub Actions run passed: [run 83 — 52 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264954447). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
-Automated checks do not replace physical testing. The owner reports that the current game and match controls work across the connected phones, including iPhone 4S Safari 9.3.6. A separate acceptance pass is still useful for 320 CSS px, portrait/landscape, disconnect/reconnect, and completing all eight rounds on three and four devices.
+Automated checks do not replace physical testing. The owner has confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6; the newly added quiz panel and reveal screen still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, and through all eight rounds on three and four devices.
 
 ## Security notes
 
