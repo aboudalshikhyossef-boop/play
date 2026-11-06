@@ -475,3 +475,66 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   }
   .match-player { width: calc(50% - 10px); margin-left: 5px; margin-right: 5px; }
 }
+
+
+/* Clear action guidance and shared round-event cards. */
+.guide-toolbar { margin: 10px 0 12px; }
+.goal-note {
+  margin-bottom: 8px;
+  padding: 12px 13px;
+  border: 1px solid #5b5234;
+  border-radius: 10px;
+  color: #f6e7bd;
+  background: #2d291f;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.rules-toggle { width: 100%; margin: 0; }
+.rules-panel { margin-top: 8px; }
+.rule-line {
+  margin: 8px 0;
+  padding: 9px 10px;
+  border-right: 3px solid #7463b2;
+  border-radius: 6px;
+  color: #d8dced;
+  background: #20253b;
+  font-size: 13px;
+  line-height: 1.85;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.rule-line strong { color: #f3d17d; }
+.action-help {
+  margin: -3px 1px 10px;
+  color: #b5bdd5;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.round-event-card {
+  margin: 10px 0 12px;
+  padding: 15px;
+  border: 1px solid #695b91;
+  border-radius: 14px;
+  background: #24213b;
+}
+.round-event-kicker { color: #c5b5f5; font-size: 11px; font-weight: bold; }
+.round-event-card h3 { margin: 6px 0; color: #fff0b9; font-size: 17px; line-height: 1.5; }
+.round-event-card p { margin: 5px 0; color: #d5d8e8; font-size: 13px; line-height: 1.85; }
+.round-event-effect {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid #494364;
+  color: #b6d9cf;
+  font-size: 12px;
+  line-height: 1.75;
+}
+.round-event-active {
+  border-color: #a27b3a;
+  background: #30291f;
+}
+.round-event-active .round-event-kicker { color: #f2cf7a; }
+@media screen and (max-width: 360px) {
+  .round-event-card { padding: 12px; }
+  .round-event-card h3 { font-size: 15px; }
+  .rule-line { padding: 8px; font-size: 12px; }
+}
