@@ -98,11 +98,11 @@ The suite covers:
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
 - Three/four-player match start, ready validation, and active-room membership lock.
-- Private challenge answers, four challenge modes, permanent no-repeat history, five interactive large-event mechanics, private event decisions and reveal, event timeouts/defaults, ledger-backed event rewards/penalties, rotating king/auction tie-breaks, six-step round roadmap, secret action privacy, action locking, guard, steal, wager, counterstrike revenge, passive event effects, deadlines, and full eight-round lifecycle.
+- Private challenge answers, four challenge modes, permanent no-repeat history, five interactive large-event mechanics, private event decisions and reveal over the HTTP API, event timeouts/defaults, ledger-backed event rewards/penalties, rotating king/auction tie-breaks, four-player court majority, poll-stable target selections, six-step round roadmap, secret action privacy, action locking, guard, steal, wager, counterstrike revenge, passive event effects, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **75 automated tests**. The latest GitHub Actions run is being verified after the event HTTP integration and four-player Court threshold tests. The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **75 automated tests**. The latest GitHub Actions run passed: [run 168 — all 75 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42273590363). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
 Automated checks do not replace physical testing. The owner confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6. The newer generated-challenge panel, five large event decision/reveal panels, six-step roadmap, and four-player duel UI still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, with both three and four players, and through all eight rounds.
 
