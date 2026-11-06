@@ -30,6 +30,7 @@ class LegacyUIContractTests(unittest.TestCase):
         cls.html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         cls.css = (ROOT / "web" / "css" / "main.css").read_text(encoding="utf-8")
         cls.js = (ROOT / "web" / "js" / "app.js").read_text(encoding="utf-8")
+        cls.engine = (ROOT / "server" / "engine.py").read_text(encoding="utf-8")
         cls.parser = IdParser()
         cls.parser.feed(cls.html)
 
@@ -57,6 +58,18 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertRegex(self.css, r"\.text-input[^}]*min-height\s*:\s*48px")
         self.assertIn("word-wrap: break-word", self.css)
         self.assertNotIn("overflow-x: hidden", self.css)
+
+
+    def test_three_or_four_player_game_arena_is_present(self):
+        html_ids = set(self.parser.ids)
+        required = {
+            "startMatchButton", "gameScreen", "actionPanel", "revengePanel",
+            "resultPanel", "finalPanel", "stealAction", "guardAction",
+            "wagerAction", "passAction", "counterstrikeAction", "rematchButton"
+        }
+        self.assertTrue(required.issubset(html_ids))
+        self.assertIn("MIN_PLAYERS = 3", self.engine)
+        self.assertIn("MAX_PLAYERS = 4", self.engine)
 
 
 if __name__ == "__main__":
