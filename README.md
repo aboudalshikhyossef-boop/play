@@ -100,7 +100,7 @@ The suite covers:
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-A GitHub Actions workflow also checks Python tests, shell syntax, and JavaScript syntax.
+The current suite contains **48 automated tests**. The latest GitHub Actions run passed: [run 62 — 48 tests and all source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42263709312). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
 Automated checks do not replace physical testing. The owner reports that the current game and match controls work across the connected phones, including iPhone 4S Safari 9.3.6. A separate acceptance pass is still useful for 320 CSS px, portrait/landscape, disconnect/reconnect, and completing all eight rounds on three and four devices.
 
