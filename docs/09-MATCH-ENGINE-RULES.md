@@ -24,20 +24,29 @@ Every player is equal. Creating the room does not grant a host role, extra power
 5. **Round result — 10 seconds.** All players see the same public result and updated balances. The server begins the next round when the result deadline elapses.
 6. **Match finished.** After the eighth result window, the server finalizes the ranking. The room may start a new match when three or four players are again present, connected, and ready.
 
-The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted.
+The browser displays the server-provided remaining time. Client clocks never decide whether an action is accepted. A visible five-step roadmap stays on the match screen and marks the current step, completed steps, and the conditional revenge step that was skipped when no theft succeeded.
 
-## Family challenge deck
+## Generated family challenge system
 
-Each round starts with one short multiple-choice challenge. The current eight-card Arabic deck focuses on accessible arithmetic, pattern recognition, everyday logic, time, and attention questions rather than specialist trivia. The question and options are visible to everyone, but the correct index and submitted answers remain server-private until the shared reveal.
+Every round starts with a freshly generated Arabic multiple-choice challenge. The generator selects from eight formats: addition, subtraction, multiplication, number sequences, elapsed time, short-term word memory, odd-one-out, and comparing two sums. Numbers, words, sequences, and choices are randomized; the challenge content is not just an eight-question static deck.
 
 - 25 seconds per challenge.
 - Correct answer: +2 coins, recorded in the coin ledger as `challenge_reward`.
 - Wrong answer or no answer before the deadline: 0 coins; there is no deduction.
-- No speed bonus: all correct answers receive the same reward.
+- No speed bonus: all correct players receive the same reward.
 - One answer per player; the first accepted answer is locked. A matching request ID and payload can be retried safely.
-- The next round does not repeat the immediately previous challenge.
+- The next question is checked against the complete prior question fingerprint, including its option set. Reordering the same options does not make a used question new.
+- The browser receives only the prompt and options before reveal, never the correct index or other players' answers.
 
-The question content is stored separately in `server/challenges.py`; the authoritative engine scores it. The browser receives only the prompt and options before reveal, not the answer key.
+### Permanent no-repeat history
+
+The `challenge_history` table stores a SHA-256 fingerprint of the normalized prompt and sorted answer-option set. Its primary key prevents two concurrent matches from claiming the same question. The row is reserved in the same SQLite transaction that creates the match round, so a crash cannot leave an assigned question unrecorded. The table deliberately has no foreign key to match records: deleting an old match or starting a rematch does not delete its question history.
+
+On engine upgrade, prompts already stored in old `match_rounds.challenge_json` records are imported into the history before new rounds are selected. The no-repeat guarantee therefore covers old fixed-deck questions too.
+
+The history lasts as long as the same SQLite database is kept. Removing or replacing `~/.local/share/chaos-family/chaos.sqlite3` resets that history. The generator has a very large practical variation space, but no finite software system can promise literally infinite unique content; if it cannot claim an unused fingerprint after its bounded retry window, it fails closed instead of repeating a known question.
+
+The challenge generator and fingerprint rules live in `server/challenges.py`; the authoritative engine reserves and scores questions in `server/engine.py`.
 
 ## Round event cards
 
@@ -99,7 +108,7 @@ Players are not eliminated at zero coins. They can continue to choose actions an
 
 ## Privacy contract
 
-During the challenge phase, each player receives the same prompt and options, plus only their own answer-submitted flag. The correct answer and other players' answers remain hidden until the challenge resolves.
+During the challenge phase, each player receives the same newly generated prompt and options, plus only their own answer-submitted flag. The correct answer and other players' answers remain hidden until the challenge resolves.
 
 During the secret-action phase, each player receives:
 - Public player names, seats, colors, connection state, and balances.
@@ -118,6 +127,6 @@ A completed match remains recorded. Starting a rematch creates a new match ID an
 
 ## Implemented scope and remaining game design
 
-The engine now supports eight rounds, an eight-question Arabic challenge deck, private challenge submissions and shared scoring, the four core secret actions, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide explaining what coins mean, where coins move, what a wager risks, how protection works, and when revenge is available.
+The engine now supports eight rounds, dynamically generated challenges from eight question formats, permanent no-repeat history across matches and server restarts, migration of previously used fixed-deck questions, private challenge submissions and shared scoring, the four core secret actions, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide and a five-step round roadmap showing exactly what happens and when.
 
 The remaining game scope includes the designed challenge library, additional bluff/trap actions, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
