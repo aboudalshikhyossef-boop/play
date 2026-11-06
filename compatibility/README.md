@@ -1,124 +1,82 @@
-# Compatibility Probe — اختبار نقطة الاتصال والشاشات
+# Compatibility Probe — اختبار توافق الأجهزة والاتصال
 
 This temporary page checks:
-- Laptop-hosted Wi-Fi hotspot reachability from the three phones.
+- Access from the laptop, two Android phones, and iPhone 4S Safari.
 - JSON request/response using XMLHttpRequest (no Fetch API).
 - Arabic/RTL text rendering.
 - Responsive page width and horizontal overflow.
 - Touch response and viewport measurements.
 
-The scripts use NetworkManager and the Python standard library. No pip installation is required.
+The Python server uses only the standard library. The public test URL is created by Cloudflare Quick Tunnel. No router configuration or Wi-Fi hotspot is required.
 
-## 1. Check Python and tools
+## 1. Check requirements
 
-On Linux Mint, run:
+On Linux Mint:
 
 ```bash
 python3 --version
-nmcli --version
-iw --version
+cloudflared --version
 ```
 
-If `iw` is missing:
+If `cloudflared` is missing, install the package for your Linux distribution using the [official Cloudflare download guide](https://developers.cloudflare.com/tunnel/downloads/).
 
-```bash
-sudo apt install iw
-```
-
-## 2. Start hotspot and test server together
+## 2. Start the server and tunnel
 
 From the repository root:
 
 ```bash
-bash start_chaos_lan.sh
+bash start_chaos.sh
 ```
 
-The startup script:
-- Checks that the Wi-Fi adapter and driver support AP mode.
-- Creates or reuses the `CHAOS-FAMILY` network on 2.4 GHz.
-- Uses WPA2-Personal security.
-- Generates a random password once and stores it locally under `~/.config/chaos-family/hotspot-password` with restrictive permissions.
-- Starts the hotspot at `10.42.0.1/24`.
-- Starts the test page at `http://10.42.0.1:8765/`.
+The launcher:
+1. Starts the Python server on `127.0.0.1:8765` only.
+2. Waits for the local server to become ready.
+3. Starts `cloudflared tunnel --url http://127.0.0.1:8765`.
+4. Extracts and displays the temporary `trycloudflare.com` URL.
+5. Keeps both processes running until you press Ctrl+C.
 
-The terminal displays the Wi-Fi password. Share it only with the three players. It is not committed to Git. The saved password means the phones can remember this Wi-Fi network and reconnect automatically after the first successful join.
+It does not create a hotspot, change NetworkManager, modify UFW, change Proton VPN settings, or add router port-forwarding rules.
 
-The laptop may disconnect from the home Wi-Fi while its adapter operates as an access point. This is expected. No home-router changes, port forwarding, public tunnel, or internet connection are needed.
+The old command `bash start_chaos_lan.sh` is retained as an alias to this Cloudflare launcher. It no longer starts a laptop hotspot.
 
-## 3. Connect all four devices
+## 3. Open the same public URL on all devices
 
-- Linux Mint laptop: local player 1 and web server.
-- Android phone 1: join `CHAOS-FAMILY`.
-- Android phone 2: join `CHAOS-FAMILY`.
-- iPhone 4S: open Settings > Wi-Fi and join `CHAOS-FAMILY`.
+- Linux Mint laptop: player 1 and local server host.
+- Android phone 1: open the printed HTTPS URL.
+- Android phone 2: open the same HTTPS URL.
+- iPhone 4S / iOS 9.3.6: open the same HTTPS URL in Safari.
 
-On all phones, open:
+Use the exact URL printed by the script. The hostname changes when a new Quick Tunnel is created. The laptop player should also use that public URL so all players use the same browser origin.
 
-`http://10.42.0.1:8765/`
+The laptop and each phone need an internet connection. They do not need to be on the same Wi-Fi network.
 
-Use the actual URL displayed by the script if it changes in a later configuration.
+## 4. What to test
 
-## 4. Firewall
+On each device:
+- Does the page open using the temporary HTTPS URL?
+- Does the server status show connected?
+- Does the tap counter increase after each press?
+- Does sending a test message return a successful echo?
+- Does the page avoid horizontal scrolling?
+- Record viewport width and height.
+- Rotate the phone and repeat the layout check.
 
-Do not disable UFW.
-
-Check:
-
-```bash
-sudo ufw status verbose
-```
-
-If UFW reports `Status: active`, first identify the hotspot Wi-Fi interface printed or selected by NetworkManager (for example `wlp2s0`). Then allow only the test server port from the hotspot subnet, replacing the interface name:
-
-```bash
-sudo ufw allow in on wlp2s0 from 10.42.0.0/24 to any port 8765 proto tcp
-```
-
-After testing, remove that temporary rule:
-
-```bash
-sudo ufw delete allow in on wlp2s0 from 10.42.0.0/24 to any port 8765 proto tcp
-```
-
-If UFW is inactive, do not add a rule just for the sake of it.
+On iPhone 4S, verify Safari 9.3.6 in portrait and landscape. A successful network load does not by itself mean the layout has passed.
 
 ## 5. Stop the test
 
-Press Ctrl+C in the server terminal, then in another terminal run:
+Press Ctrl+C in the terminal running `start_chaos.sh`. The launcher stops both the cloudflared process and the local Python server.
 
-```bash
-bash scripts/stop_chaos_hotspot.sh
-```
+The temporary URL stops working when the cloudflared process stops.
 
-This deactivates the hotspot but preserves its profile and locally stored password.
+## 6. VPN behavior
 
-## 6. What to test
+The launcher does not alter Proton VPN, its Kill Switch, DNS settings, routes, or firewall policy. The cloudflared process uses the laptop's existing network routing. If the VPN policy blocks the outbound connection, diagnose the VPN/network configuration; do not disable the Kill Switch just to make this script work.
 
-On each device:
-- Does the Wi-Fi network appear and allow joining?
-- Does the Arabic test page open?
-- Does the server status show connected?
-- Does the tap counter increase on each press?
-- Does sending a test message show a successful echo?
-- Does the page avoid horizontal scrolling?
-- Record viewport width/height.
-- Rotate the phone and repeat the layout check.
+## 7. Security boundary
 
-On iPhone 4S, confirm that portrait viewport width is close to 320 CSS px. Test Safari 9.3.6 in portrait and landscape.
+A Quick Tunnel URL is public: anyone who has the URL can access the exposed compatibility service while the tunnel is running. A random hostname is not authentication. The probe contains no private match data, but stop it immediately after testing and do not leave it running unnecessarily.
 
-## 7. If hotspot creation fails
+Before tunneling the full game, implement a room invite code, per-player session tokens, strict server-side validation, a four-seat limit, rate limits, and privacy boundaries between each player's private state.
 
-The script checks AP mode before creating or activating the profile. If it reports that AP mode is unsupported, do not keep retrying or disable security. Send the exact terminal error and the output of:
-
-```bash
-nmcli device status
-iw list
-```
-
-A compatible USB Wi-Fi adapter may be needed.
-
-If the hotspot starts but phones cannot open the page, check UFW and confirm that the phone actually joined `CHAOS-FAMILY`.
-
-## Security boundary
-
-WPA2 protects access to the private Wi-Fi network. HTTP traffic from a joined device to the laptop is still unencrypted. Any device with the Wi-Fi password is on the trusted game network. The server must validate sessions and actions. Never expose this test server through router port forwarding or a public tunnel.
+Quick Tunnels are for testing and development, not a production availability guarantee. They support up to 200 in-flight requests and do not support SSE. This project uses XMLHttpRequest polling instead of SSE.
