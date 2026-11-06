@@ -859,12 +859,12 @@ class MatchEngineTests(unittest.TestCase):
         player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
         state = self.engine.start_match(code, player_ids[0])
         with closing(self.store._connect()) as db:
+            db.execute("BEGIN")
             db.execute(
                 "UPDATE match_players SET coins = CASE player_id "
                 "WHEN ? THEN 2 WHEN ? THEN 2 ELSE 5 END WHERE match_id = ?",
                 (player_ids[0], player_ids[1], state["match_id"]),
             )
-            db.execute("BEGIN")
             with patch.object(
                 self.engine, "_next_round_event",
                 return_value=dict(ROUND_EVENTS["temporary_king"]),
