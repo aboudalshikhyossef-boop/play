@@ -6,7 +6,7 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 
 ## 2. Completed specification and network decisions
 
-- Fixed four-player model.
+- Three-or-four-player match model; a fourth player is optional.
 - Laptop is player 1 and the single local server, without game privileges.
 - Arabic-first RTL interface.
 - iPhone 4S / iOS 9.3.6 is a first-class browser target.
@@ -20,7 +20,7 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 
 - Python application server binds to loopback only.
 - SQLite store for rooms, players, and hashed sessions.
-- Four-seat room creation and joining.
+- Up to four lobby seats; three connected and ready players can start a match.
 - Room invite codes and player-specific sessions.
 - Secure, HttpOnly session cookie for HTTPS clients.
 - Session restoration after refresh.
@@ -49,22 +49,26 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 
 Exit criteria: four physical devices remain in one room and all see the same lobby state.
 
-### Milestone E — Authoritative match engine
-- Define and implement the match state machine and round lifecycle.
-- Add server deadlines, action locking, reveal, resolution, and settlement.
-- Add the coin ledger with deterministic transaction order.
-- Add idempotent action requests and state revisions.
-- Persist the match state in the same SQLite database.
+### Milestone E — Core authoritative match engine — implemented in the current branch
+- Added the eight-round match record and persistent match-player snapshots.
+- Added three/four-player start eligibility and active-room membership lock.
+- Added 60-second secret-action phase, 15-second revenge phase, and 10-second round-result phase.
+- Added server-side steal, guard, wager, and pass actions.
+- Added bounded counterstrike revenge with two charges per player and no revenge chains.
+- Added timeout passes, deterministic resolution, idempotent request handling, and a persistent coin ledger.
+- Added match arena UI, standings, reveal, final ranking, and rematch control.
 
-Exit criteria: scripted full matches resolve correctly in automated tests.
+Automated tests cover a full eight-round match and the critical concurrency/privacy rules. The physical game-arena test remains pending on the four devices.
 
-### Milestone F — Full gameplay systems
-- Implement attack, guard, bluff, wager, trap, and all agreed secret actions.
-- Implement bounded revenge with anti-chain protections.
-- Implement the complete event catalogue.
-- Implement varied challenge families.
+Exit criteria: all match actions and phase transitions resolve correctly on all supported browsers and physical devices.
+
+### Milestone F — Complete challenge and chaos systems
+- Add the varied challenge library and server-validated challenge outcomes.
+- Add bluff, trap, and the remaining agreed secret actions.
+- Expand revenge cards beyond the current counterstrike foundation.
+- Implement the complete random-event catalogue: Black Box, Bomb, Temporary King, Chaos, Secret Auction, and Court.
 - Implement comeback balancing and anti-repetition.
-- Implement match-end ranking and statistics.
+- Add full match statistics and additional tie-break/play-balance tests.
 
 Exit criteria: every mechanic has rules, player UI states, server validation, and tests.
 
@@ -77,19 +81,20 @@ Exit criteria: every mechanic has rules, player UI states, server validation, an
 Exit criteria: all screens work without breaking the legacy phone experience.
 
 ### Milestone H — Full integration and completion
-- Test complete matches on all four physical devices.
+- Test complete matches with three and four physical players on the supported devices.
 - Test disconnect, refresh, duplicate actions, timeouts, and tunnel interruption.
 - Test long Arabic names, mixed-direction text, and on-screen keyboard.
 - Review all public endpoints and private-state boundaries.
 - Review the repository for secrets and runtime data.
 - Complete final setup, recovery, and maintenance documentation.
 
-Exit criteria: a complete four-player game is playable start to finish and all critical tests pass.
+Exit criteria: a complete three-or-four-player game is playable start to finish and all critical tests pass.
 
 ## 5. Automated test coverage currently present
 
-- Store: room creation, first seat assignment, distinct seats, fifth-player rejection, duplicate/invalid names, ready aggregation, leave/rejoin, session revocation, and concurrent joins.
-- HTTP: health and static assets, session cookie flags, session recovery, authenticated room reads, join capacity, ready states, cross-origin rejection, rate limiting, and shared diagnostic feed.
+- Store: room creation, 3/4 readiness thresholds, distinct seats, fifth-player rejection, duplicate/invalid names, session recovery, leave/rejoin, active-room lock, and concurrent joins.
+- Match engine: 3/4 player starts, concurrent start idempotency, secret actions, guard, theft, wager, revenge eligibility/charges, duplicate requests, deadlines, and a complete eight-round match.
+- HTTP: health/static routes, cookies, session recovery, room/match APIs, active membership lock, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
 Run:
 
