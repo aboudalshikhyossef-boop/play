@@ -17,7 +17,7 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The eight-round match engine now supports four challenge modes.** The question generator varies arithmetic, patterns, time, memory, and attention questions, and also includes **اكتشف الكذبة** (find the false equation), **توقّع النرد** (predict a hidden dice roll), and **المواجهة الثنائية** (rotating one-on-one duels when four people play). Duel winners earn 3 coins, a correct tie earns 2 coins each, and no one loses coins for a wrong answer. A permanent SQLite history records each full question and option set, so a used challenge cannot appear again in another match on that database, even after a restart or rematch. Existing fixed-deck questions are imported during upgrade. The five-step roadmap explains each phase and its timing. Five server-selected event cards continue to modify later rounds. Remaining work includes the larger event catalogue (Black Box, Bomb, Temporary King, Auction, Court), more varied non-question mini-games, comeback tuning, match statistics, and final visual/audio polish.
+**The eight-round match engine now includes five interactive chaos events in addition to its five passive modifier cards.** Black Box offers hidden bonus/shield/trap boxes; Bomb is passed secretly and penalizes the last holder; Temporary King crowns the lowest-balance player after the challenge; Secret Auction awards a free shield to the highest valid bid; and Court requires an absolute-majority vote to impose a one-coin penalty. Decisions are server-authoritative, private until reveal, deadline-bound, and connected to the persistent coin ledger. The generated challenge system still supports quiz, bluff, prediction, and four-player rotating duel modes, with permanent no-repeat history in SQLite. The six-step roadmap explains the challenge, optional event decision, actions, reveal, conditional revenge, and result. Remaining work includes more mini-game formats, the broader Chaos concept, comeback tuning, match statistics, and final visual/audio polish.
 
 ## Fixed product requirements
 
@@ -98,13 +98,13 @@ The suite covers:
 - Concurrent join attempts.
 - Shared diagnostic message delivery through the server feed.
 - Three/four-player match start, ready validation, and active-room membership lock.
-- Private challenge answers, four challenge modes, bluff validation, hidden-dice prediction, four-player duel scoring and rotating pairings, permanent no-repeat history across matches and restarts, legacy-question migration, secret action privacy, clear round-stage UI, action locking, guard, steal, wager, counterstrike revenge, round-event effects and persistence, deadlines, and full eight-round lifecycle.
+- Private challenge answers, four challenge modes, permanent no-repeat history, five interactive large-event mechanics, private event decisions and reveal, event timeouts/defaults, ledger-backed event rewards/penalties, rotating king/auction tie-breaks, six-step round roadmap, secret action privacy, action locking, guard, steal, wager, counterstrike revenge, passive event effects, deadlines, and full eight-round lifecycle.
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **63 automated tests**. The latest GitHub Actions run passed: [run 130 — all 63 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42269019817). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **75 automated tests**. The latest GitHub Actions run is being verified after the event HTTP integration and four-player Court threshold tests. The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
-Automated checks do not replace physical testing. The owner has confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6; the four challenge modes, generated-question panel, duel opponent badge, reveal screen, and round roadmap need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, with both three and four players, and through all eight rounds.
+Automated checks do not replace physical testing. The owner confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6. The newer generated-challenge panel, five large event decision/reveal panels, six-step roadmap, and four-player duel UI still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, with both three and four players, and through all eight rounds.
 
 ## Security notes
 
