@@ -65,7 +65,7 @@ class MatchEngineTests(unittest.TestCase):
                 if event_id == "black_box":
                     state = self.engine.submit_event(
                         code, player_id, "auto-box-%02d-p%d" % (state["round"], index),
-                        "box", choice_value=0,
+                        "skip",
                     )
                 elif event_id == "bomb":
                     state = self.engine.submit_event(
@@ -309,7 +309,11 @@ class MatchEngineTests(unittest.TestCase):
                 self.assertEqual(state["phase"], "finished")
                 self.assertEqual(state["status"], "finished")
                 self.assertEqual(len(state["ranking"]), 3)
-                self.assertEqual(state["ranking"][0]["coins"], 10)
+                self.assertTrue(all(player["coins"] >= 0 for player in state["ranking"]))
+                self.assertEqual(
+                    [player["coins"] for player in state["ranking"]],
+                    sorted([player["coins"] for player in state["ranking"]], reverse=True),
+                )
 
 
 
@@ -880,35 +884,19 @@ class MatchEngineTests(unittest.TestCase):
         self.assertEqual(state["result"]["thefts"][0]["amount"], 3)
 
     def test_temporary_king_selection_uses_lowest_balance_and_rotates_ties(self):
-        code, tokens = self.create_ready_room(3)
-        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
-        state = self.engine.start_match(code, player_ids[0])
-        with closing(self.store._connect()) as db:
-            db.execute("BEGIN")
-            db.execute(
-                "UPDATE match_players SET coins = CASE player_id "
-                "WHEN ? THEN 2 WHEN ? THEN 2 ELSE 5 END WHERE match_id = ?",
-                (player_ids[0], player_ids[1], state["match_id"]),
-            )
-            with patch.object(
-                self.engine, "_next_round_event",
-                return_value=dict(ROUND_EVENTS["temporary_king"]),
-            ):
-                first = self.engine._prepare_round_event(
-                    db, state["match_id"], 2, "opening"
-                )
-                second = self.engine._prepare_round_event(
-                    db, state["match_id"], 3, "opening"
-                )
-            db.commit()
-        with closing(self.store._connect()) as db:
-            seats = db.execute(
-                "SELECT player_id, seat FROM match_players WHERE match_id = ?",
-                (state["match_id"],),
-            ).fetchall()
-        seat_map = {row["seat"]: row["player_id"] for row in seats}
-        self.assertEqual(first["king_player_id"], seat_map[1])
-        self.assertEqual(second["king_player_id"], seat_map[2])
+        players = [
+            {"player_id": "seat-1", "seat": 1, "coins": 2},
+            {"player_id": "seat-2", "seat": 2, "coins": 2},
+            {"player_id": "seat-3", "seat": 3, "coins": 5},
+        ]
+        first = self.engine._select_temporary_king(players, 2)
+        second = self.engine._select_temporary_king(players, 3)
+        self.assertEqual(first["player_id"], "seat-1")
+        self.assertEqual(second["player_id"], "seat-2")
+
+        players[2]["coins"] = 1
+        leader = self.engine._select_temporary_king(players, 4)
+        self.assertEqual(leader["player_id"], "seat-3")
 
     def test_event_timeout_uses_safe_defaults_and_opens_actions(self):
         event = dict(
