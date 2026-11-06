@@ -1,4 +1,5 @@
 import concurrent.futures
+from contextlib import closing
 import tempfile
 import time
 import unittest
@@ -145,7 +146,7 @@ class MatchEngineTests(unittest.TestCase):
     def test_wager_win_credits_the_net_profit_without_negative_balances(self):
         code, tokens, state = self.start(3)
         ids = [p["id"] for p in state["players"]]
-        with patch("server.engine.secrets.randbelow", return_value=0):
+        with patch("server.engine.secrets.randbelow", return_value=1):
             self.engine.submit_action(code, ids[0], "req-wager-0001", "wager", None, 3)
             self.engine.submit_action(code, ids[1], "req-pass-0021", "pass")
             result = self.engine.submit_action(code, ids[2], "req-pass-0022", "pass")
@@ -180,7 +181,7 @@ class MatchEngineTests(unittest.TestCase):
         code, tokens, state = self.start(3)
         ids = [p["id"] for p in state["players"]]
         self.engine.submit_action(code, ids[0], "req-pass-0041", "pass")
-        with self.store._connect() as db:
+        with closing(self.store._connect()) as db:
             db.execute(
                 "UPDATE matches SET deadline_at = ? WHERE id = ?",
                 (int(time.time()) - 1, state["match_id"]),
