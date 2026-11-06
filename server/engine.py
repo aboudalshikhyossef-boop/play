@@ -570,7 +570,6 @@ class MatchEngine:
                 elif second["correct"] and not first["correct"]:
                     second["reward"] = DUEL_WIN_REWARD
                     duel_results.append({
-                        "player_ids": list(pair),
                         "outcome": "second_won",
                         "winner_name": second["player_name"],
                         "opponent_name": first["player_name"],
@@ -580,7 +579,6 @@ class MatchEngine:
                     first["reward"] = CHALLENGE_REWARD
                     second["reward"] = CHALLENGE_REWARD
                     duel_results.append({
-                        "player_ids": list(pair),
                         "outcome": "both_correct",
                         "winner_name": None,
                         "opponent_name": None,
@@ -588,9 +586,7 @@ class MatchEngine:
                     })
                 else:
                     duel_results.append({
-                        "player_ids": list(pair),
                         "outcome": "no_correct_answer",
-                        "winner_id": None,
                         "winner_name": None,
                         "opponent_name": None,
                         "reward": 0,
