@@ -428,8 +428,12 @@ class MatchEngineTests(unittest.TestCase):
                 "UPDATE matches SET deadline_at = ? WHERE id = ?",
                 (int(time.time()) - 1, state["match_id"]),
             )
+        with self.assertRaises(MatchNotActive):
+            self.engine.submit_action(code, player_ids[0], "quiz-late-pass-0001", "pass")
+
         advanced = self.engine.get_state(code, player_ids[0])
         self.assertEqual(advanced["phase"], "actions")
+        self.assertFalse(advanced["private"]["action_submitted"])
         self.assertTrue(all(not item["answered"] for item in advanced["challenge_result"]["answers"]))
         self.assertEqual([p["coins"] for p in advanced["players"]], [10, 10, 10])
 
