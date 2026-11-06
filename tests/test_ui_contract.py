@@ -73,6 +73,8 @@ class LegacyUIContractTests(unittest.TestCase):
             "challengeTitle", "challengeFamily", "challengePrompt", "challengeAnswer",
             "challengeSubmit", "challengeStatus", "challengeSummary",
             "challengeCorrectAnswer", "challengeExplanation", "challengeResults",
+            "challengeMode", "challengeModeHelp", "challengeOpponent",
+            "challengeDuelResults",
             "roundFlow", "roundFlowStatus", "flowChallenge", "flowAction",
             "flowReveal", "flowRevenge", "flowResult"
         }
@@ -100,6 +102,18 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn("challenge_result_json", self.engine)
         self.assertIn("correct_index", self.challenge_source)
         self.assertIn("challenge_submitted", self.engine)
+
+    def test_bluff_prediction_and_duel_modes_are_explained_in_the_ui(self):
+        for mode in ("bluff", "prediction", "duel"):
+            self.assertIn('"'+mode+'"', self.challenge_source)
+        self.assertIn("function renderChallenge(challenge, result, state)", self.js)
+        self.assertIn("duel_opponent", self.js)
+        self.assertIn("duel_results", self.js)
+        self.assertIn("اكتشف الكذبة", self.html)
+        self.assertIn("توقّع النرد", self.html)
+        self.assertIn("المواجهة الثنائية", self.html)
+        self.assertIn(".challenge-mode-pill", self.css)
+        self.assertIn(".challenge-duel-row", self.css)
 
     def test_questions_are_generated_and_permanently_tracked(self):
         self.assertIn("def generate_challenge()", self.challenge_source)
