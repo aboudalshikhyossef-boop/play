@@ -1,110 +1,96 @@
-# Architecture and Local-Network Security
+# Architecture and Network Security
 
 ## 1. Deployment model
 
-The Linux Mint laptop runs the game server, creates the private Wi-Fi access point, and also opens the ordinary player interface for its owner. Three other clients join from two Android phones and the iPhone 4S.
+The Linux Mint 22.3 laptop runs one authoritative Python game server and one SQLite database. The same laptop is also player 1 using the ordinary player interface; it has no referee role or privileged game information.
 
-The home router is not part of the gameplay network. The laptop's Wi-Fi adapter provides the local access point and the laptop serves the web application. No public hosting, cloud services, or internet connection is required during a match.
+Three other clients join from two Android phones and the iPhone 4S / iOS 9.3.6. All four browsers connect to the same game server. There is no per-device game database and no client is responsible for calculating authoritative balances or outcomes.
 
-## 2. Laptop-hosted hotspot
+## 2. Network topology — Cloudflare Quick Tunnel
 
-The intended network profile is:
-- NetworkManager-managed Wi-Fi access point.
-- SSID: `CHAOS-FAMILY`.
-- 2.4 GHz band for compatibility with iPhone 4S.
-- WPA2-Personal / WPA-PSK with RSN/CCMP.
-- IPv4 shared mode, with the laptop at `10.42.0.1/24`.
-- DHCP/DNS supplied by NetworkManager to joined devices.
-- Game server bound only to `10.42.0.1`.
+The selected connection path is:
 
-The startup script checks that the Wi-Fi hardware/driver advertises AP mode before activating the profile. Not every laptop adapter supports AP mode. If it does not, use a compatible USB Wi-Fi adapter or retain a router-based LAN as a fallback.
+1. Python listens only on `127.0.0.1:8765` on the laptop.
+2. `cloudflared` opens an outbound connection from the laptop to Cloudflare.
+3. Cloudflare assigns a temporary random `trycloudflare.com` HTTPS address.
+4. All four players open the same URL in their browsers.
+5. Requests travel through the tunnel to the single local Python process.
 
-When one Wi-Fi adapter changes from client mode to AP mode, it may disconnect from the home Wi-Fi. That is expected; the match does not require internet access. A separate Ethernet uplink is optional.
+The game server is not bound to `0.0.0.0` or a LAN address by default. The laptop does not accept direct inbound connections from the home router or the public internet. No router port forwarding, public IP, local Wi-Fi hotspot, or UFW inbound exception is required for the tunnel path.
 
-See [the hotspot decision record](06-HOTSPOT-DECISION.md).
+All player devices and the laptop need internet connectivity while using the Quick Tunnel. The devices do not need to be connected to the same Wi-Fi network.
 
-## 3. Proposed stack
+## 3. One source of truth and synchronization
+
+- One Python process owns the match state.
+- One SQLite database on the laptop persists match state, coin ledger, actions, and minimal reconnect/session information.
+- Every client communicates with that same process through same-origin HTTP endpoints.
+- Clients submit intentions; the server validates and resolves actions.
+- The server publishes public match state and only the requesting player's private state.
+- No Cloudflare database or client-side database synchronization is involved.
+
+Each action must include a unique request identifier so retries after network interruption cannot apply the same action twice. State updates carry a monotonically increasing revision or sequence number so clients can detect stale state. Reconnect restores the existing seat and session without duplicating a player.
+
+## 4. Proposed application stack
 
 Initial choices, subject to compatibility verification:
 - Front end: semantic HTML, CSS, and conservative JavaScript compatible with iOS 9 Safari.
 - Local server: Python 3 with a small HTTP application; Flask is the current proposal.
 - Serving: a WSGI server compatible with the selected Python environment; Waitress is the current proposal.
-- Storage: SQLite.
+- Storage: SQLite stored on the laptop only.
 - Client/server messages: JSON over same-origin HTTP requests using XMLHttpRequest.
-- Synchronization: short-interval polling initially; consider WebSocket only if real-device testing demonstrates a need.
-- Assets: bundled locally; no external CDN dependency.
+- Synchronization: short-interval polling initially; do not depend on Server-Sent Events because Quick Tunnels do not support SSE.
+- Assets: bundled locally; no external CDN dependency for the game UI.
 
 Pin and document tested dependency versions after checking the actual Linux Mint and Python versions. Do not assume newest package releases support the installed environment.
 
-## 4. Server-authoritative model
+## 5. Quick Tunnel lifecycle
 
-The server is the single source of truth for player seats and sessions, match and round state, timers and deadlines, secret action submissions, random event selection, coin balances, action eligibility and costs, revenge charges and outcomes, and public/private information.
+The command `bash start_chaos.sh`:
+- Starts the compatibility/game HTTP origin at `127.0.0.1:8765`.
+- Starts `cloudflared tunnel --url http://127.0.0.1:8765`.
+- Extracts and prints the temporary HTTPS URL.
+- Keeps both processes alive in the foreground.
+- Stops both children when the user presses Ctrl+C or the launcher exits.
 
-Clients submit requested actions, not claimed outcomes or balances. The server validates every request and calculates all results.
+The old command `bash start_chaos_lan.sh` is a backward-compatible alias to the same Quick Tunnel launcher. It does not start a Wi-Fi access point.
 
-Each action should include a unique request identifier so retries after network interruption do not apply the same action twice. State updates should carry a monotonically increasing revision or sequence number so clients can detect stale state.
+Quick Tunnel hostnames are temporary and change when a new tunnel is created. The tunnel only exists while the cloudflared process is running. Quick Tunnels have no uptime guarantee, support up to 200 in-flight requests, and do not support SSE. They are intended for testing and development. A permanent or production deployment would require a different reviewed design, such as a named Cloudflare Tunnel.
 
-## 5. Local invitation flow
+## 6. Proton VPN interaction
 
-1. Host starts the local hotspot and server.
-2. The server binds only to `10.42.0.1`.
-3. Host creates a match and receives a random, short-lived invite code.
-4. Application creates a LAN URL containing the hotspot address, port, and invite code.
-5. Other players join the saved `CHAOS-FAMILY` network and open the invitation link.
-6. Each player claims one available seat and receives a private session token.
-7. Four players join and ready up; only then can the match begin.
+The launcher does not modify Proton VPN, its Kill Switch, DNS, routing table, or firewall. cloudflared uses the operating system's existing network route. If the VPN or Kill Switch blocks the outbound tunnel, the launcher reports the failure; it must not disable protections or attempt to bypass the VPN.
 
-The Wi-Fi password and game invite code are different things: the former joins the private network; the latter joins a game room. Neither is to be committed to Git. Rate-limit game invite attempts, expire unused invitations, and validate seat/session ownership.
+## 7. Security boundaries
 
-## 6. Firewall and network boundary
+- A Quick Tunnel URL is public. Anyone who obtains the URL can reach the exposed service while the tunnel is active.
+- The random URL is not authentication and must not be treated as a secret room password.
+- The current compatibility probe contains no private game state; stop its tunnel after testing.
+- Before exposing the full game, require a room invite code with adequate entropy and expiry, limit each room to four seats, issue separate high-entropy player session tokens, validate session ownership on every request, rate-limit join/action endpoints, and make private state player-specific.
+- Never expose a debug console, filesystem browser, admin endpoint, or raw database through the tunnel.
+- Use request-size limits and safe error responses.
+- Do not put session tokens, real invite codes, tunnel URLs, database files, or player data into Git or logs.
 
-- Do not configure router port forwarding.
-- Do not use public tunnels or reverse proxies.
-- Keep the server bound to `10.42.0.1`, not every interface.
-- Do not disable UFW.
-- If UFW is active, allow only the required TCP game port from `10.42.0.0/24` on the Wi-Fi AP interface.
-- Do not expose a general-purpose admin endpoint to player clients.
-- Stop the hotspot when the family session is finished.
+The public browser-to-Cloudflare leg uses HTTPS. cloudflared uses an encrypted outbound tunnel back to the laptop. This is not end-to-end encryption that prevents Cloudflare's edge from processing the browser request; do not describe it as such.
 
-NetworkManager shared mode supplies client addressing and may NAT traffic to a current default uplink if one exists. The game itself only needs local access to the server; internet sharing is not a game requirement.
+Quick Tunnel can be accessed without a Cloudflare account. It is a temporary development ingress, not a substitute for application authentication or a production access policy.
 
-HTTP on the hotspot is not encrypted. WPA2 protects access to the Wi-Fi network but does not encrypt HTTP requests after a device has joined. Only share the Wi-Fi password with trusted players.
+## 8. SQLite storage and recovery
 
-## 7. Session and input safety
-
-- Generate high-entropy session tokens on the server.
-- Keep tokens out of public lobby state, logs, screenshots, and repository files.
-- Use appropriate cookie flags where supported and validate session ownership on every action.
-- Validate all input server-side: player name length, action, target, amount, phase, deadline, and request ID.
-- Escape player-supplied names and text before rendering; prevent HTML/script injection.
-- Apply request size limits and rate limits.
-- Do not trust client clocks.
-- Avoid storing unnecessary personal information.
-- Provide a clear way to reset local match data.
-
-## 8. Data storage
-
-SQLite stores only what the game needs: match state/history, player display names and selected avatars/colors, coin ledger and action results, event/challenge references, and minimal session data required for reconnect.
-
-Do not commit database files, real player history, session tokens, invite codes, hotspot passwords, or local configuration to Git.
+SQLite remains on the laptop. Store it in an OS-appropriate local data directory outside the repository. Keep backups and logs out of Git. Persist enough state to recover from browser refresh or a temporary client disconnect. The server decides whether a deadline elapsed while a client was disconnected. Define graceful host shutdown and deliberate match reset behavior.
 
 ## 9. Public repository hygiene
 
-The repository is public at the time of writing. Never commit secrets or real local network addresses. Include .gitignore before implementation. Keep runtime database, logs, and local hotspot credentials outside tracked source files. Use example configuration with placeholders only. Review changes before pushing. Do not put personal details in test fixtures.
+The repository is public. Never commit secrets, tunnel URLs, player session tokens, room invite codes, local database files, player history, or local configuration. Use `.gitignore` for runtime data and local settings. The launcher stores its temporary logs under a private temporary directory and deletes them on exit.
 
-## 10. Recovery and lifecycle
+## 10. Operational checklist
 
-Persist enough state to recover from browser refresh or temporary Wi-Fi interruption. Reconnect must restore the correct player seat without duplicating the player. The server decides whether a deadline elapsed while a client was disconnected. Define host shutdown and graceful match termination. Do not silently resume a stale match after deliberate reset.
-
-The hotspot profile and locally generated Wi-Fi password persist between sessions so trusted devices can remember the network. The hotspot itself is activated only when the game startup command is run and is stopped explicitly after testing or playing.
-
-## 11. Operational checks
-
-Before each play session:
-- Confirm the laptop Wi-Fi adapter supports AP mode.
-- Start the CHAOS hotspot using the project startup script.
-- Confirm the hotspot IP is `10.42.0.1/24`.
-- Connect all three phones to `CHAOS-FAMILY`.
-- Confirm the server is bound only to `10.42.0.1`.
-- Confirm firewall scope and no router port-forwarding rule.
-- Confirm all four devices can reach the local page.
+Before each test/play session:
+- Confirm Python 3 and cloudflared are installed.
+- Confirm the laptop and player devices have internet access.
+- Run `bash start_chaos.sh`.
+- Share the generated HTTPS URL with the other three players.
+- Open that same URL on the laptop and all phones.
+- Keep the launcher terminal open for the entire session.
+- Stop with Ctrl+C when finished.
+- Confirm no tunnel or local server process remains after stopping.
