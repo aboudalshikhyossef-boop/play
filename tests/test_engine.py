@@ -7,7 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from server.challenges import CHALLENGE_BY_ID
+from server.challenges import (
+    ROUND_CHALLENGES,
+    challenge_fingerprint,
+    generate_challenge,
+)
 from server.engine import (
     ActionLocked,
     MatchEngine,
@@ -39,7 +43,12 @@ class MatchEngineTests(unittest.TestCase):
         return created["invite_code"], tokens
 
     def answer_challenge_for_all(self, code, state):
-        challenge = CHALLENGE_BY_ID[state["challenge"]["id"]]
+        with closing(self.store._connect()) as db:
+            row = db.execute(
+                "SELECT challenge_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                (state["match_id"], state["round"]),
+            ).fetchone()
+        challenge = json.loads(row["challenge_json"])
         wrong_index = (challenge["correct_index"] + 1) % len(challenge["options"])
         player_ids = [player["id"] for player in state["players"]]
         for index, player_id in enumerate(player_ids):
