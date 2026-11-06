@@ -103,7 +103,7 @@ The game must rotate among varied challenge families:
 
 Correct answers are not the only path to winning. Challenges can award coins, temporary powers, protection, information, or tactical opportunities.
 
-Content must be stored separately from game logic and support Arabic text. Avoid requiring specialist knowledge or obscure trivia. The first implemented deck contains eight accessible Arabic multiple-choice questions covering everyday arithmetic, simple patterns, time, attention, and familiar logic; broader formats remain part of the planned library.
+Content must be stored separately from game logic and support Arabic text. Avoid requiring specialist knowledge or obscure trivia. The current generator creates questions from eight accessible formats, including arithmetic, patterns, time, short-term memory, odd-one-out, and comparing sums. A persistent SQLite history records the normalized prompt and order-independent answer-option set, so an exact challenge is not reused across matches or server restarts while the same game database is retained. Legacy fixed-deck questions are imported during upgrade.
 
 ## 10. Anti-repetition and comeback
 The variation system should avoid the same challenge family in consecutive rounds where possible, avoid recently used events until the pool requires reuse, vary order/targets/rewards/modifiers, and apply comeback opportunities carefully so they do not erase skill. Avoid long idle waits; use simultaneous or parallel decisions where practical.
