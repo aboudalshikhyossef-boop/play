@@ -192,5 +192,35 @@ class MatchEngineTests(unittest.TestCase):
         self.assertEqual([p["coins"] for p in advanced["players"]], [10, 10, 10])
 
 
+    def test_full_eight_round_match_transitions_and_finishes(self):
+        code, tokens, state = self.start(3)
+        player_ids = [player["id"] for player in state["players"]]
+
+        for round_no in range(1, 9):
+            for index, player_id in enumerate(player_ids):
+                request_id = "full-r%02d-p%d" % (round_no, index + 1)
+                state = self.engine.submit_action(
+                    code, player_id, request_id, "pass", None, 0
+                )
+            self.assertEqual(state["phase"], "result")
+            self.assertEqual(state["round"], round_no)
+
+            with closing(self.store._connect()) as db:
+                db.execute(
+                    "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                    (int(time.time()) - 1, state["match_id"]),
+                )
+            state = self.engine.get_state(code, player_ids[0])
+
+            if round_no < 8:
+                self.assertEqual(state["phase"], "actions")
+                self.assertEqual(state["round"], round_no + 1)
+            else:
+                self.assertEqual(state["phase"], "finished")
+                self.assertEqual(state["status"], "finished")
+                self.assertEqual(len(state["ranking"]), 3)
+                self.assertEqual(state["ranking"][0]["coins"], 10)
+
+
 if __name__ == "__main__":
     unittest.main()
