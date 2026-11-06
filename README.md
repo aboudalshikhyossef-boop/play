@@ -102,7 +102,7 @@ The suite covers:
 - HTTP API, cookie flags, origin rejection, and rate limits.
 - Static file and health endpoints.
 
-The current suite contains **75 automated tests**. The latest GitHub Actions run passed: [run 168 — all 75 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42273590363). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
+The current suite contains **75 automated tests**. The latest GitHub Actions run passed: [run 173 — all 75 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42273870788). The workflow also checks Python compilation, shell syntax, and legacy-compatible JavaScript syntax.
 
 Automated checks do not replace physical testing. The owner confirmed the original match arena on the connected phones, including iPhone 4S Safari 9.3.6. The newer generated-challenge panel, five large event decision/reveal panels, six-step roadmap, and four-player duel UI still need physical-device acceptance. Test at 320 CSS px, portrait/landscape, after disconnect/reconnect, with both three and four players, and through all eight rounds.
 
