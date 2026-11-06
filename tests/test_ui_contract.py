@@ -31,6 +31,8 @@ class LegacyUIContractTests(unittest.TestCase):
         cls.css = (ROOT / "web" / "css" / "main.css").read_text(encoding="utf-8")
         cls.js = (ROOT / "web" / "js" / "app.js").read_text(encoding="utf-8")
         cls.engine = (ROOT / "server" / "engine.py").read_text(encoding="utf-8")
+        cls.challenge_source = (ROOT / "server" / "challenges.py").read_text(encoding="utf-8")
+        cls.app = (ROOT / "server" / "app.py").read_text(encoding="utf-8")
         cls.parser = IdParser()
         cls.parser.feed(cls.html)
 
@@ -67,7 +69,10 @@ class LegacyUIContractTests(unittest.TestCase):
             "resultPanel", "finalPanel", "stealAction", "guardAction",
             "wagerAction", "passAction", "counterstrikeAction", "rematchButton",
             "rulesToggle", "rulesPanel", "roundEventCard", "roundEventTitle",
-            "roundEventDescription", "roundEventEffect"
+            "roundEventDescription", "roundEventEffect", "challengePanel",
+            "challengeTitle", "challengeFamily", "challengePrompt", "challengeAnswer",
+            "challengeSubmit", "challengeStatus", "challengeSummary",
+            "challengeCorrectAnswer", "challengeExplanation", "challengeResults"
         }
         self.assertTrue(required.issubset(html_ids))
         self.assertIn("MIN_PLAYERS = 3", self.engine)
@@ -82,6 +87,17 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn('var isHidden = /\\bhidden\\b/', self.js)
         for event_id in ("market_rush", "free_guard", "bounty", "double_revenge", "high_stakes"):
             self.assertIn(event_id, self.engine)
+
+    def test_round_challenge_is_a_private_server_scored_stage(self):
+        self.assertIn("function renderChallenge(challenge, result, state)", self.js)
+        self.assertIn("function submitChallenge()", self.js)
+        self.assertIn("/match/challenge", self.app)
+        self.assertIn("CHALLENGE_SECONDS = 25", self.challenge_source)
+        self.assertIn("CHALLENGE_REWARD = 2", self.challenge_source)
+        self.assertIn("answer_index", self.engine)
+        self.assertIn("challenge_result_json", self.engine)
+        self.assertIn("correct_index", self.challenge_source)
+        self.assertIn("challenge_submitted", self.engine)
 
 
 if __name__ == "__main__":
