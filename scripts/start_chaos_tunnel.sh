@@ -60,19 +60,12 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 echo "Starting CHAOS compatibility server on http://$HOST:$PORT/ ..."
-python3 "$ROOT/compatibility/probe_server.py" --host "$HOST" --port "$PORT" >"$SERVER_LOG" 2>&1 &
+python3 -u "$ROOT/compatibility/probe_server.py" --host "$HOST" --port "$PORT" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 SERVER_READY=0
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-  if python3 - "$HOST" "$PORT" <<'PY' >/dev/null 2>&1
-import socket
-import sys
-
-connection = socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=1)
-connection.close()
-PY
-  then
+  if grep -Fq "CHAOS compatibility probe is running." "$SERVER_LOG"; then
     SERVER_READY=1
     break
   fi
