@@ -231,7 +231,11 @@ class MatchEngineTests(unittest.TestCase):
         code, tokens, state = self.start(3)
         player_ids = [player["id"] for player in state["players"]]
         previous_challenge_id = state["challenge"]["id"]
-        used_prompts = {state["challenge"]["prompt"]}
+        used_questions = {
+            challenge_fingerprint(
+                state["challenge"]["prompt"], state["challenge"]["options"]
+            )
+        }
 
         for round_no in range(1, 9):
             for index, player_id in enumerate(player_ids):
@@ -253,8 +257,11 @@ class MatchEngineTests(unittest.TestCase):
                 self.assertEqual(state["phase"], "challenge")
                 self.assertEqual(state["round"], round_no + 1)
                 self.assertNotEqual(state["challenge"]["id"], previous_challenge_id)
-                self.assertNotIn(state["challenge"]["prompt"], used_prompts)
-                used_prompts.add(state["challenge"]["prompt"])
+                fingerprint = challenge_fingerprint(
+                    state["challenge"]["prompt"], state["challenge"]["options"]
+                )
+                self.assertNotIn(fingerprint, used_questions)
+                used_questions.add(fingerprint)
                 previous_challenge_id = state["challenge"]["id"]
                 state = self.answer_challenge_for_all(code, state)
                 self.assertEqual(state["phase"], "actions")
@@ -459,20 +466,26 @@ class MatchEngineTests(unittest.TestCase):
         code1, tokens1 = self.create_ready_room(3)
         id1 = self.store.get_session(tokens1[0])["player_id"]
         first = self.engine.start_match(code1, id1)
-        prompt1 = first["challenge"]["prompt"]
+        fingerprint1 = challenge_fingerprint(
+            first["challenge"]["prompt"], first["challenge"]["options"]
+        )
 
         code2, tokens2 = self.create_ready_room(3)
         id2 = self.store.get_session(tokens2[0])["player_id"]
         second = self.engine.start_match(code2, id2)
-        prompt2 = second["challenge"]["prompt"]
-        self.assertNotEqual(prompt1, prompt2)
+        fingerprint2 = challenge_fingerprint(
+            second["challenge"]["prompt"], second["challenge"]["options"]
+        )
+        self.assertNotEqual(fingerprint1, fingerprint2)
 
         restarted_engine = MatchEngine(self.store)
         code3, tokens3 = self.create_ready_room(3)
         id3 = self.store.get_session(tokens3[0])["player_id"]
         third = restarted_engine.start_match(code3, id3)
-        prompt3 = third["challenge"]["prompt"]
-        self.assertNotIn(prompt3, {prompt1, prompt2})
+        fingerprint3 = challenge_fingerprint(
+            third["challenge"]["prompt"], third["challenge"]["options"]
+        )
+        self.assertNotIn(fingerprint3, {fingerprint1, fingerprint2})
 
         with closing(self.store._connect()) as db:
             used = db.execute("SELECT COUNT(*) AS count FROM challenge_history").fetchone()["count"]
