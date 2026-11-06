@@ -37,6 +37,7 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 - The owner confirmed the Quick Tunnel connection, room creation, joining, and lobby operation on the intended devices.
 - On 2026-11-06, the owner reported that the current game interface and match controls work across the connected phones, and specifically that the iPhone 4S runs the game correctly.
 - Detailed 320 CSS px, portrait/landscape, reconnect, and complete 8-round acceptance are still tracked as separate edge-case checks.
+- The timed challenge panel and answer-reveal UI were added after the latest owner-reported device check; validate those new screens on Android and iPhone 4S before marking this expansion physically accepted.
 
 ## 4. Remaining implementation sequence
 
