@@ -74,7 +74,7 @@ Exit criteria: all match actions and phase transitions resolve correctly on all 
 - Expand the challenge library with additional family-friendly mini-games beyond the implemented quiz, bluff, prediction, and four-player duel modes; keep all answer validation and rewards on the server.
 - Add bluff, trap, and the remaining agreed secret actions.
 - Expand revenge cards beyond the current counterstrike foundation.
-- Implemented five large events: Black Box, Bomb, Temporary King, Secret Auction, and Court. Each has server-authoritative resolution, private decisions where needed, persistent event results, ledger entries for all coin changes, 20-second decision deadlines, and safe timeout defaults.
+- Implemented five large events: Black Box, Bomb, Temporary King, Secret Auction, and Court. Each has server-authoritative resolution, private decisions where needed, persistent event results, ledger entries for all coin changes, 20-second decision deadlines, and documented timeout defaults for each event.
 - Added authenticated `/match/event` API and mobile event choice/reveal panels with explicit rules and progress status.
 - Added a six-step roadmap that marks optional event decisions as active, complete, or skipped; Temporary King resolves automatically after the challenge.
 - Remaining: the broader Chaos event concept, additional event types and balancing.
@@ -104,7 +104,7 @@ Exit criteria: a complete three-or-four-player game is playable start to finish 
 ## 5. Automated test coverage currently present
 
 - Store: room creation, 3/4 readiness thresholds, distinct seats, fifth-player rejection, duplicate/invalid names, session recovery, leave/rejoin, active-room lock, and concurrent joins.
-- Match engine: 3/4 player starts, concurrent start idempotency, four challenge modes including rotating duel pairings, generated private challenge answers, persistent no-repeat history and migration, secret event decisions and five large-event mechanics, event timeouts/defaults and persistence, coin-ledger integration, secret actions, guard, theft, wager, revenge eligibility/charges, passive event effects, duplicate requests, deadlines, and a complete eight-round match.
+- Match engine: 3/4 player starts, concurrent start idempotency, four challenge modes including rotating duel pairings, generated private challenge answers, persistent no-repeat history and migration, secret event decisions and five large-event mechanics, documented event timeouts/defaults and persistence, coin-ledger integration, secret actions, guard, theft, wager, revenge eligibility/charges, passive event effects, duplicate requests, deadlines, and a complete eight-round match.
 - UI contracts: legacy-browser syntax, challenge and event panel IDs, no-repeat guidance, six-step round-flow states, event instructions, and per-stage plain-language explanations.
 - HTTP: health/static routes, cookies, session recovery, room/match APIs, active membership lock, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
