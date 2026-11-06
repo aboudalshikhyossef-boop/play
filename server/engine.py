@@ -467,6 +467,16 @@ class MatchEngine:
             db.execute("BEGIN IMMEDIATE")
             match = self._room_match(db, code, active_only=True)
             self._authorize(db, match["id"], player_id)
+            previous_request = db.execute(
+                "SELECT * FROM challenge_answers WHERE match_id = ? AND player_id = ? AND request_id = ?",
+                (match["id"], player_id, request_id),
+            ).fetchone()
+            if previous_request is not None:
+                if previous_request["answer_index"] == answer_index:
+                    db.commit()
+                    return self.get_state(code, player_id)
+                raise ActionLocked("معرّف هذا الطلب استُخدم لإجابة مختلفة.")
+
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
             round_row = db.execute(
@@ -746,8 +756,32 @@ class MatchEngine:
             db.execute("BEGIN IMMEDIATE")
             match = self._room_match(db, code, active_only=True)
             self._authorize(db, match["id"], player_id)
+            previous_request = db.execute(
+                "SELECT * FROM round_actions WHERE match_id = ? AND player_id = ? AND request_id = ?",
+                (match["id"], player_id, request_id),
+            ).fetchone()
+            if previous_request is not None:
+                same = (
+                    previous_request["action_type"] == action_type
+                    and previous_request["target_player_id"] == target_player_id
+                    and previous_request["amount"] == amount
+                )
+                if same:
+                    db.commit()
+                    return self.get_state(code, player_id)
+                raise ActionLocked("معرّف هذا الطلب استُخدم لحركة مختلفة.")
+
+            before_advance = db.execute(
+                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            challenge_was_pending = (
+                not before_advance or not before_advance["challenge_result_json"]
+            )
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
+            if challenge_was_pending:
+                raise MatchNotActive("انتهت مرحلة التحدي أو لم تُكشف إجاباته بعد؛ حدّث الشاشة.")
             round_progress = db.execute(
                 "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
