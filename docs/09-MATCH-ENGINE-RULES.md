@@ -28,12 +28,15 @@ The browser displays the server-provided remaining time. Client clocks never dec
 
 ## Generated family challenge system
 
-Every round starts with a freshly generated Arabic multiple-choice challenge. The generator selects from eight formats: addition, subtraction, multiplication, number sequences, elapsed time, short-term word memory, odd-one-out, and comparing two sums. Numbers, words, sequences, and choices are randomized; the challenge content is not just an eight-question static deck.
+Every round starts with a freshly generated Arabic challenge. The generator can choose a standard quiz, **Bluff**, **Prediction**, or (with four players only) **Duel** mode. Standard quiz prompts use addition, subtraction, multiplication, number sequences, elapsed time, short-term word memory, odd-one-out, and comparing sums. Numbers, words, sequences, dice results, and answer choices are randomized; the challenge content is not a fixed deck.
 
 - 25 seconds per challenge.
 - Correct answer: +2 coins, recorded in the coin ledger as `challenge_reward`.
 - Wrong answer or no answer before the deadline: 0 coins; there is no deduction.
-- No speed bonus: all correct players receive the same reward.
+- No speed bonus in quiz, bluff, or prediction: all correct players receive the same reward.
+- Bluff: three arithmetic statements are shown; exactly one is false. Identify that statement for +2 coins.
+- Prediction: the server privately generates two die results before answers are submitted. Guess their sum; a correct prediction earns +2 coins. This is explicitly a luck mode, not a skill question.
+- Duel: available only with four players. The server pairs the four seats into two head-to-head matches and rotates through all three possible pair layouts over successive rounds. A player who alone answers correctly in their pair earns +3 coins; if both answer correctly, each earns +2; if neither answers correctly, neither earns coins. Wrong or missing answers never deduct coins.
 - One answer per player; the first accepted answer is locked. A matching request ID and payload can be retried safely.
 - The next question is checked against the complete prior question fingerprint, including its option set. Reordering the same options does not make a used question new.
 - The browser receives only the prompt and options before reveal, never the correct index or other players' answers.
@@ -45,6 +48,8 @@ The `challenge_history` table stores a SHA-256 fingerprint of the normalized pro
 On engine upgrade, prompts already stored in old `match_rounds.challenge_json` records are imported into the history before new rounds are selected. The no-repeat guarantee therefore covers old fixed-deck questions too.
 
 The history lasts as long as the same SQLite database is kept. Removing or replacing `~/.local/share/chaos-family/chaos.sqlite3` resets that history. The generator has a very large practical variation space, but no finite software system can promise literally infinite unique content; if it cannot claim an unused fingerprint after its bounded retry window, it fails closed instead of repeating a known question.
+
+Before each duel, the server sends each player only their own opponent's display name; it does not publish the pair list or the answer key. The final reveal shows the winner and reward without including internal duel seat IDs.
 
 The challenge generator and fingerprint rules live in `server/challenges.py`; the authoritative engine reserves and scores questions in `server/engine.py`.
 
@@ -129,4 +134,4 @@ A completed match remains recorded. Starting a rematch creates a new match ID an
 
 The engine now supports eight rounds, dynamically generated challenges from eight question formats, permanent no-repeat history across matches and server restarts, migration of previously used fixed-deck questions, private challenge submissions and shared scoring, the four core secret actions, reveal, wagers, guarding, theft, counterstrike revenge, five persisted round-event cards, deadlines, timeout passes, a persistent coin ledger, three-or-four-player matches, and final ranking. The client includes a plain-language rules guide and a five-step round roadmap showing exactly what happens and when.
 
-The remaining game scope includes the designed challenge library, additional bluff/trap actions, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
+The remaining game scope includes more varied mini-game formats beyond the current four challenge modes, the larger named event catalogue (Black Box, Bomb, Temporary King, Auction, Court), comeback balancing, final match statistics, and the polished sound/effects layer. Those systems will be integrated into this same state machine rather than bolted on as a separate game.
