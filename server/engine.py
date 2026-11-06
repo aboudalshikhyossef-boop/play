@@ -1560,22 +1560,38 @@ class MatchEngine:
                 raise ActionLocked("معرّف هذا الطلب استُخدم لحركة مختلفة.")
 
             before_advance = db.execute(
-                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                "SELECT challenge_result_json, event_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
             challenge_was_pending = (
                 not before_advance or not before_advance["challenge_result_json"]
             )
+            event_before = self._round_event(db, match["id"], match["round_no"])
+            event_was_pending = (
+                bool(before_advance and before_advance["challenge_result_json"])
+                and self._event_requires_input(event_before["id"])
+                and not before_advance["event_result_json"]
+            )
             self._advance_expired(db, match, now)
             match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
             if challenge_was_pending:
                 raise MatchNotActive("انتهت مرحلة التحدي أو لم تُكشف إجاباته بعد؛ حدّث الشاشة.")
+            if event_was_pending:
+                raise MatchNotActive("انتهت مرحلة الحدث أو لم تُكشف نتيجته بعد؛ حدّث الشاشة.")
             round_progress = db.execute(
-                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                "SELECT challenge_result_json, event_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
             if not round_progress or not round_progress["challenge_result_json"]:
                 raise MatchNotActive("أكمل التحدي أولًا؛ ستُفتح الحركات بعد كشف الإجابات.")
+            current_event = self._round_event(db, match["id"], match["round_no"])
+            if (
+                self._event_requires_input(current_event["id"])
+                and not round_progress["event_result_json"]
+            ):
+                raise MatchNotActive("أكمل قرار الحدث أولًا؛ الحركات لم تُفتح بعد.")
             existing = db.execute(
                 "SELECT * FROM round_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
                 (match["id"], match["round_no"], player_id),
@@ -1752,13 +1768,21 @@ class MatchEngine:
         phase = match["phase"]
         if phase == "actions":
             round_progress = db.execute(
-                "SELECT challenge_result_json FROM match_rounds WHERE match_id = ? AND round_no = ?",
+                "SELECT challenge_result_json, event_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
                 (match["id"], match["round_no"]),
             ).fetchone()
             if not round_progress or not round_progress["challenge_result_json"]:
                 self._resolve_challenge(db, match, now)
             else:
-                self._resolve_actions(db, match, now)
+                event = self._round_event(db, match["id"], match["round_no"])
+                if (
+                    self._event_requires_input(event["id"])
+                    and not round_progress["event_result_json"]
+                ):
+                    self._resolve_event_choices(db, match, now)
+                else:
+                    self._resolve_actions(db, match, now)
             return
         if phase == "revenge":
             self._resolve_revenge(db, match, now)
@@ -1775,8 +1799,10 @@ class MatchEngine:
             return
 
         previous_event = self._round_event(db, match["id"], match["round_no"])
-        next_event = self._next_round_event(previous_event["id"])
         next_round = match["round_no"] + 1
+        next_event = self._prepare_round_event(
+            db, match["id"], next_round, previous_event["id"]
+        )
         next_challenge = self._claim_unique_challenge(db, match["id"], next_round)
         db.execute(
             "UPDATE matches SET round_no = ?, phase = 'actions', deadline_at = ?, "
