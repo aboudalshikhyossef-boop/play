@@ -112,6 +112,29 @@
           </div>
         </div>
 
+        <div class="guide-toolbar">
+          <div class="goal-note"><strong>هدفك:</strong> اجمع أكبر عدد من العملات. كل عملة تساوي نقطة في ترتيبك النهائي.</div>
+          <button id="rulesToggle" class="button button-quiet rules-toggle" type="button" aria-expanded="false" aria-controls="rulesPanel">شرح الحركات — اضغط هنا</button>
+        </div>
+
+        <div id="rulesPanel" class="game-section-card rules-panel hidden">
+          <div class="eyebrow">قواعد اللعبة ببساطة</div>
+          <h3>كيف تفوز؟</h3>
+          <div class="rule-line"><strong>1. السرقة:</strong> اختر لاعبًا؛ إذا لم يحمِ نفسه، تنتقل حتى عملتين من رصيده إلى رصيدك. لا يمكنك سرقة نفسك.</div>
+          <div class="rule-line"><strong>2. الحماية:</strong> تدفع عملة واحدة لتحمي رصيدك من كل السرقات التي تستهدفك في هذه الجولة. أحيانًا تجعلها بطاقة الفوضى مجانية.</div>
+          <div class="rule-line"><strong>3. الرهان:</strong> اختر 1 إلى 3 عملات. فرصة الفوز 50٪: تربح صافي المبلغ نفسه، أو تخسر المبلغ الذي اخترته. لا تراهن بما لا تتحمل خسارته.</div>
+          <div class="rule-line"><strong>4. التمرير:</strong> لا تسرق ولا تحمي ولا تراهن؛ يبقى رصيدك كما هو في هذه الحركة.</div>
+          <div class="rule-line"><strong>الانتقام:</strong> إذا سرقك لاعب فعلًا، تحصل على 15 ثانية لتسترد منه عملة. لديك فرصتا انتقام فقط طوال المباراة، ولا توجد سلسلة انتقام.</div>
+          <div class="rule-line"><strong>مهم:</strong> لديك 60 ثانية لاختيار حركة واحدة. اختيارات الجميع تبقى سرية حتى يكشفها الخادم معًا. بعد 8 جولات يفوز صاحب أكبر رصيد.</div>
+        </div>
+
+        <div id="roundEventCard" class="round-event-card" aria-live="polite">
+          <div class="round-event-kicker">⚡ بطاقة فوضى الجولة</div>
+          <h3 id="roundEventTitle">الجولة الأولى — تعرّف على اللعبة</h3>
+          <p id="roundEventDescription">تُعرض قاعدة الجولة هنا.</p>
+          <div id="roundEventEffect" class="round-event-effect"></div>
+        </div>
+
         <div class="game-section-card">
           <div class="players-heading">
             <h3>أرصدة اللاعبين</h3>
@@ -125,27 +148,32 @@
           <h3>ماذا ستفعل هذه الجولة؟</h3>
           <p class="muted">لن يرى اللاعبون اختيارك قبل انتهاء مرحلة الاختيارات وكشف الحركات معًا.</p>
 
-          <label for="actionTarget">هدف السرقة</label>
+          <label for="actionTarget">من تريد أن تأخذ العملات منه؟</label>
+          <p class="action-help">اختر اسم اللاعب أولًا. عند نجاح السرقة تنتقل العملات من رصيده إلى رصيدك.</p>
           <select id="actionTarget" class="text-input"></select>
 
-          <button id="stealAction" class="button button-danger" type="button">اسرق عملتين من لاعب</button>
-          <button id="guardAction" class="button button-secondary" type="button">احمِ نفسك — التكلفة عملة واحدة</button>
+          <button id="stealAction" class="button button-danger" type="button">حاول سرقة حتى عملتين</button>
+          <p class="action-help">قد يفشل الهجوم إذا اختار اللاعب المستهدف الحماية.</p>
 
-          <label for="wagerAmount">مقدار المراهنة</label>
+          <button id="guardAction" class="button button-secondary" type="button">احمِ نفسك — التكلفة عملة واحدة</button>
+          <p class="action-help">تمنع كل محاولات السرقة ضدك في هذه الجولة، حتى لو هاجمك أكثر من لاعب.</p>
+
+          <label for="wagerAmount">كم عملة تريد أن تخاطر بها؟</label>
+          <p class="action-help">فرصة الفوز 50٪: تربح صافي المبلغ نفسه، أو تخسر المبلغ الذي اخترته.</p>
           <select id="wagerAmount" class="text-input">
             <option value="1">عملة واحدة</option>
             <option value="2">عملتان</option>
             <option value="3">ثلاث عملات</option>
           </select>
-          <button id="wagerAction" class="button button-gold" type="button">راهن على الحظ</button>
-          <button id="passAction" class="button button-quiet" type="button">لا أفعل شيئًا هذه الجولة</button>
+          <button id="wagerAction" class="button button-gold" type="button">قدّم الرهان</button>
+          <button id="passAction" class="button button-quiet" type="button">مرّر هذه الجولة — دون ربح أو خسارة</button>
           <div id="actionStatus" class="notice" role="status" aria-live="polite">اختيارك ما زال سريًا.</div>
         </div>
 
         <div id="revengePanel" class="game-section-card hidden">
           <div class="eyebrow">دور الانتقام</div>
           <h3>لماذا تسكت عمّن سرقك؟</h3>
-          <p class="muted">يمكنك استرداد عملة واحدة من لاعب سرق منك في هذه الجولة. لديك فرصتان فقط طوال المباراة، ولا يوجد انتقام متسلسل.</p>
+          <p class="muted">من سرق منك في هذه الجولة فقط هو هدفك. يمكنك استرداد عملة واحدة (أو حتى عملتين مع بطاقة الانتقام المضاعف). كل ضربة تستهلك فرصة، ولديك فرصتان طوال المباراة.</p>
           <label for="revengeTarget">اختر اللاعب الذي سرقك</label>
           <select id="revengeTarget" class="text-input"></select>
           <button id="counterstrikeAction" class="button button-danger" type="button">انتقم واسترد عملة</button>
