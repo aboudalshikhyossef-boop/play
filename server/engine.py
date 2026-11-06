@@ -654,6 +654,40 @@ class MatchEngine:
             (match_id, round_no, player_id, delta, reason, source_player_id, now or int(time.time())),
         )
 
+    def _resolve_automatic_event(
+        self, db: sqlite3.Connection, match: sqlite3.Row, now: int
+    ) -> Optional[Dict[str, Any]]:
+        event = self._round_event(db, match["id"], match["round_no"])
+        if event["id"] != "temporary_king":
+            return None
+
+        king_id = event.get("king_player_id")
+        king = db.execute(
+            "SELECT player_id, display_name FROM match_players "
+            "WHERE match_id = ? AND player_id = ?",
+            (match["id"], king_id),
+        ).fetchone()
+        if king is None:
+            raise StoreError("تعذر تحديد الملك المؤقت لهذه الجولة.")
+        db.execute(
+            "UPDATE match_players SET coins = coins + 1 "
+            "WHERE match_id = ? AND player_id = ?",
+            (match["id"], king_id),
+        )
+        self._append_ledger(
+            db, match["id"], match["round_no"], king_id, 1,
+            "king_crown_bonus", now=now,
+        )
+        return {
+            "event_id": "temporary_king",
+            "king_name": king["display_name"],
+            "bonus": 1,
+            "description": (
+                "%s أصبح الملك المؤقت وربح عملة التاج. حمايته مجانية "
+                "ويمكنه سرقة حتى 3 عملات في هذه الجولة."
+            ) % king["display_name"],
+        }
+
     def _resolve_challenge(self, db: sqlite3.Connection, match: sqlite3.Row, now: int) -> None:
         match_id = match["id"]
         round_no = match["round_no"]
@@ -759,10 +793,19 @@ class MatchEngine:
             "WHERE match_id = ? AND round_no = ?",
             (json.dumps(result, ensure_ascii=False), match_id, round_no),
         )
+        automatic_event_result = self._resolve_automatic_event(db, match, now)
+        if automatic_event_result is not None:
+            db.execute(
+                "UPDATE match_rounds SET event_result_json = ? "
+                "WHERE match_id = ? AND round_no = ?",
+                (json.dumps(automatic_event_result, ensure_ascii=False), match_id, round_no),
+            )
+        event = self._round_event(db, match_id, round_no)
+        next_window = EVENT_SECONDS if self._event_requires_input(event["id"]) else ACTION_SECONDS
         db.execute(
             "UPDATE matches SET deadline_at = ?, revision = revision + 1, updated_at = ? "
             "WHERE id = ?",
-            (now + ACTION_SECONDS, now, match_id),
+            (now + next_window, now, match_id),
         )
 
     def submit_challenge(
