@@ -254,6 +254,8 @@ class MatchEngine:
                 options = legacy.get("options")
                 if not isinstance(options, list):
                     options = []
+                else:
+                    options = [option for option in options if isinstance(option, str)]
                 family = legacy.get("family") if isinstance(legacy.get("family"), str) else "قديم"
                 db.execute(
                     "INSERT OR IGNORE INTO challenge_history "
