@@ -314,9 +314,28 @@ class MatchEngine:
             and not isinstance(challenge.get("correct_index"), bool)
             and 0 <= challenge["correct_index"] < len(challenge["options"])
             and isinstance(challenge.get("explanation"), str)
+            and challenge.get("mode", "quiz") in ("quiz", "bluff", "prediction", "duel")
         )
         if not valid:
             raise StoreError("تعذر تحميل سؤال الجولة المحفوظ. لم يتم استبداله بسؤال قديم.")
+
+        if challenge.get("mode", "quiz") == "duel":
+            pairs = challenge.get("duel_pairs")
+            assigned = [
+                row["player_id"] for row in db.execute(
+                    "SELECT player_id FROM match_players WHERE match_id = ? ORDER BY seat",
+                    (match_id,),
+                ).fetchall()
+            ]
+            paired = [player_id for pair in pairs for player_id in pair] if isinstance(pairs, list) else []
+            if (
+                len(assigned) != 4
+                or len(pairs or []) != 2
+                or any(not isinstance(pair, list) or len(pair) != 2 for pair in (pairs or []))
+                or len(set(paired)) != 4
+                or set(paired) != set(assigned)
+            ):
+                raise StoreError("ترتيب المواجهة الثنائية غير صالح.")
         return challenge
 
     def _claim_unique_challenge(
