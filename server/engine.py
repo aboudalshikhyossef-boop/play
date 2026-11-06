@@ -1194,6 +1194,13 @@ class MatchEngine:
                     return self.get_state(code, player_id)
                 raise ActionLocked("معرّف هذا الطلب استُخدم لقرار حدث مختلف.")
 
+            existing = db.execute(
+                "SELECT * FROM event_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
+                (match["id"], match["round_no"], player_id),
+            ).fetchone()
+            if existing is not None:
+                raise ActionLocked("تم قفل قرارك لهذا الحدث.")
+
             round_row = db.execute(
                 "SELECT challenge_result_json, event_result_json FROM match_rounds "
                 "WHERE match_id = ? AND round_no = ?",
@@ -1274,23 +1281,6 @@ class MatchEngine:
                     raise InvalidInput("اختر لاعبًا أو امتنع عن التصويت.")
                 if amount != 0 or choice_value is not None:
                     raise InvalidInput("التصويت لا يحتاج إلى مبلغ أو رقم صندوق.")
-
-            existing = db.execute(
-                "SELECT * FROM event_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
-                (match["id"], match["round_no"], player_id),
-            ).fetchone()
-            if existing is not None:
-                same = (
-                    existing["request_id"] == request_id
-                    and existing["choice_type"] == choice_type
-                    and existing["target_player_id"] == target_player_id
-                    and existing["amount"] == amount
-                    and existing["choice_value"] == choice_value
-                )
-                if same:
-                    db.commit()
-                    return self.get_state(code, player_id)
-                raise ActionLocked("تم قفل قرارك لهذا الحدث.")
 
             db.execute(
                 "INSERT INTO event_actions "
