@@ -35,19 +35,20 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 ### Physical compatibility — partially verified
 
 - The owner confirmed the Quick Tunnel test page opens in iPhone 4S Safari 9.3.6.
-- Earlier Android tests confirmed hotspot association but did not prove tunnel-based page access.
-- Android tunnel loading and the new real lobby still need confirmation on both physical Android devices.
-- New lobby layout still needs actual iPhone portrait/landscape verification.
+- The owner confirmed the basic Cloudflare connection, room creation, joining, and lobby operation on the intended devices.
+- The owner specifically confirmed the page/lobby connection on iPhone 4S Safari 9.3.6.
+- The newly added match arena and action controls still require physical-device acceptance, including iPhone portrait/landscape.
 
 ## 4. Remaining implementation sequence
 
 ### Milestone D — Complete lobby UX and device acceptance
-- Test room creation and joining from all four real devices.
-- Verify seat display, readiness changes, reconnect after refresh, and leaving.
+- Basic room creation, joining, and lobby connection have been confirmed by the owner on the target devices.
+- Verify 3-player and 4-player readiness transitions and reconnect after refresh.
+- Test the new game arena, all action controls, revenge controls, results, and rematch on the physical devices.
 - Check 320 CSS px, Arabic line wrapping, touch targets, keyboard-open behavior, portrait, and landscape.
 - Fix all clipping, overlap, and horizontal overflow.
 
-Exit criteria: four physical devices remain in one room and all see the same lobby state.
+Exit criteria: three or four physical devices complete a full match and all see the same public state.
 
 ### Milestone E — Core authoritative match engine — implemented in the current branch
 - Added the eight-round match record and persistent match-player snapshots.
