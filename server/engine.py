@@ -480,15 +480,9 @@ class MatchEngine:
             start_index = (round_no - 2) % player_count
             event["bomb_holder_id"] = players[start_index]["player_id"]
         elif event["id"] == "temporary_king":
-            tie_start = (round_no - 2) % player_count
-            king = min(
-                players,
-                key=lambda row: (
-                    row["coins"],
-                    (row["seat"] - 1 - tie_start) % player_count,
-                ),
-            )
-            event["king_player_id"] = king["player_id"]
+            # The king is selected after the challenge reward is settled.
+            # Store only the rotating tie-break position in the prepared card.
+            event["tie_start_seat"] = ((round_no - 2) % player_count) + 1
         return event
 
     @staticmethod
@@ -654,6 +648,21 @@ class MatchEngine:
             (match_id, round_no, player_id, delta, reason, source_player_id, now or int(time.time())),
         )
 
+    @staticmethod
+    def _select_temporary_king(
+        players: Sequence[sqlite3.Row], round_no: int
+    ) -> sqlite3.Row:
+        if not players:
+            raise StoreError("لا يوجد لاعب مؤهل لتاج الجولة.")
+        tie_start = (round_no - 2) % len(players)
+        return min(
+            players,
+            key=lambda row: (
+                row["coins"],
+                (row["seat"] - 1 - tie_start) % len(players),
+            ),
+        )
+
     def _resolve_automatic_event(
         self, db: sqlite3.Connection, match: sqlite3.Row, now: int
     ) -> Optional[Dict[str, Any]]:
@@ -661,14 +670,22 @@ class MatchEngine:
         if event["id"] != "temporary_king":
             return None
 
-        king_id = event.get("king_player_id")
-        king = db.execute(
-            "SELECT player_id, display_name FROM match_players "
-            "WHERE match_id = ? AND player_id = ?",
-            (match["id"], king_id),
-        ).fetchone()
-        if king is None:
-            raise StoreError("تعذر تحديد الملك المؤقت لهذه الجولة.")
+        candidates = db.execute(
+            "SELECT player_id, display_name, seat, coins FROM match_players "
+            "WHERE match_id = ? ORDER BY seat",
+            (match["id"],),
+        ).fetchall()
+        king = self._select_temporary_king(candidates, match["round_no"])
+        king_id = king["player_id"]
+        event["king_player_id"] = king_id
+        db.execute(
+            "UPDATE match_rounds SET event_json = ? WHERE match_id = ? AND round_no = ?",
+            (
+                json.dumps(event, ensure_ascii=False),
+                match["id"],
+                match["round_no"],
+            ),
+        )
         db.execute(
             "UPDATE match_players SET coins = coins + 1 "
             "WHERE match_id = ? AND player_id = ?",
@@ -1215,10 +1232,16 @@ class MatchEngine:
                 (match["id"],),
             ).fetchone()["count"]
             if event["id"] == "black_box":
-                if choice_type != "box" or choice_value not in (0, 1, 2):
-                    raise InvalidInput("اختر صندوقًا واحدًا من الصناديق الثلاثة.")
-                if target_player_id is not None or amount != 0:
-                    raise InvalidInput("اختيار الصندوق لا يحتاج إلى لاعب أو مبلغ.")
+                if choice_type == "skip":
+                    if target_player_id is not None or amount != 0 or choice_value is not None:
+                        raise InvalidInput("تجاوز الصندوق لا يحتاج إلى هدف أو مبلغ.")
+                elif choice_type == "box":
+                    if choice_value not in (0, 1, 2):
+                        raise InvalidInput("اختر صندوقًا واحدًا من الصناديق الثلاثة.")
+                    if target_player_id is not None or amount != 0:
+                        raise InvalidInput("اختيار الصندوق لا يحتاج إلى لاعب أو مبلغ.")
+                else:
+                    raise InvalidInput("اختر صندوقًا أو تجاوز الحدث.")
             elif event["id"] == "bomb":
                 if choice_type not in ("keep", "pass"):
                     raise InvalidInput("اختر الاحتفاظ بالقنبلة أو تمريرها.")
