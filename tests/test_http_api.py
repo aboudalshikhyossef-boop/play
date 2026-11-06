@@ -137,5 +137,55 @@ class HTTPAPITests(unittest.TestCase):
         self.assertEqual(statuses[5], 429)
 
 
+    def test_three_player_match_starts_and_freezes_room_membership(self):
+        status, created, cookie = self.request("POST", "/api/rooms", {"name": "Host"})
+        self.assertEqual(status, 201)
+        creator_cookie = cookie.split(";", 1)[0]
+        cookies = [creator_cookie]
+
+        for name in ("Android One", "Android Two"):
+            status, joined, set_cookie = self.request(
+                "POST", "/api/rooms/%s/join" % created["invite_code"], {"name": name}
+            )
+            self.assertEqual(status, 201)
+            cookies.append(set_cookie.split(";", 1)[0])
+
+        for cookie_value in cookies:
+            status, ready, _ = self.request(
+                "POST", "/api/rooms/%s/ready" % created["invite_code"],
+                {"ready": True}, cookie_value
+            )
+            self.assertEqual(status, 200)
+            self.assertTrue(ready["room"]["all_ready"])
+
+        status, match, _ = self.request(
+            "POST", "/api/rooms/%s/start" % created["invite_code"], {}, creator_cookie
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(match["phase"], "actions")
+        self.assertEqual(match["player_count"], 3)
+
+        status, snapshot, _ = self.request(
+            "GET", "/api/rooms/%s/match" % created["invite_code"], cookie=creator_cookie
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(snapshot["match_id"], match["match_id"])
+
+        status, _late, _ = self.request(
+            "POST", "/api/rooms/%s/join" % created["invite_code"],
+            {"name": "Late Player"}
+        )
+        self.assertEqual(status, 409)
+
+        status, action_state, _ = self.request(
+            "POST", "/api/rooms/%s/match/action" % created["invite_code"],
+            {"request_id": "api-action-0001", "action": "pass", "amount": 0},
+            creator_cookie
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(action_state["phase"], "actions")
+        self.assertTrue(action_state["private"]["action_submitted"])
+
+
 if __name__ == "__main__":
     unittest.main()
