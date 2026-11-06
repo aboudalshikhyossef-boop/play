@@ -1,0 +1,31 @@
+name: Python and browser-source checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile Python
+        run: python -m compileall -q server tests
+      - name: Run unit and API tests
+        run: python -m unittest discover -s tests -v
+      - name: Check shell scripts
+        run: bash -n start_chaos.sh start_chaos_lan.sh start_compatibility.sh scripts/start_chaos_tunnel.sh
+      - name: Check legacy-compatible client JavaScript syntax
+        run: node --check web/js/app.js
