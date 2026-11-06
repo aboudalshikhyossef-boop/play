@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 cleanup() {
   bash "$ROOT/scripts/stop_chaos_hotspot.sh" || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
 
 if [[ $# -gt 0 ]]; then
   bash "$ROOT/scripts/start_chaos_hotspot.sh" "$1"
