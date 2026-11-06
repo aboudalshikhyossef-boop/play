@@ -20,7 +20,7 @@ The application creates its own data folder with restricted permissions and atte
 
 ## Room rules
 
-- A room has a maximum of up to four seats; three or four players may start a match.
+- A room has a maximum of four seats; three or four players may start a match.
 - The creator automatically occupies one seat.
 - Invite codes contain 10 characters from an alphabet that avoids visually ambiguous characters.
 - Duplicate player names are rejected within a room, ignoring case.
