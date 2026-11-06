@@ -890,6 +890,410 @@ class MatchEngine:
 
         return self.get_state(code, player_id)
 
+    def _insert_timeout_event_choices(
+        self, db: sqlite3.Connection, match: sqlite3.Row, now: int, event_id: str
+    ) -> None:
+        defaults = {
+            "black_box": ("skip", None, 0, None),
+            "bomb": ("keep", None, 0, None),
+            "secret_auction": ("bid", None, 0, None),
+            "court": ("abstain", None, 0, None),
+        }
+        choice_type, target_id, amount, choice_value = defaults[event_id]
+        db.execute(
+            "INSERT OR IGNORE INTO event_actions "
+            "(match_id, round_no, player_id, choice_type, target_player_id, amount, "
+            "choice_value, request_id, submitted_at) "
+            "SELECT ?, ?, mp.player_id, ?, ?, ?, ?, 'event-timeout-' || mp.player_id, ? "
+            "FROM match_players mp WHERE mp.match_id = ? "
+            "AND NOT EXISTS (SELECT 1 FROM event_actions ea "
+            "WHERE ea.match_id = mp.match_id AND ea.round_no = ? "
+            "AND ea.player_id = mp.player_id)",
+            (
+                match["id"], match["round_no"], choice_type, target_id, amount,
+                choice_value, now, match["id"], match["round_no"],
+            ),
+        )
+
+    def _resolve_event_choices(
+        self, db: sqlite3.Connection, match: sqlite3.Row, now: int
+    ) -> None:
+        match_id = match["id"]
+        round_no = match["round_no"]
+        event = self._round_event(db, match_id, round_no)
+        event_id = event["id"]
+        if not self._event_requires_input(event_id):
+            raise MatchNotActive("لا يحتاج هذا الحدث إلى قرار إضافي.")
+
+        self._insert_timeout_event_choices(db, match, now, event_id)
+        players = db.execute(
+            "SELECT * FROM match_players WHERE match_id = ? ORDER BY seat",
+            (match_id,),
+        ).fetchall()
+        player_map = {row["player_id"]: dict(row) for row in players}
+        actions = db.execute(
+            "SELECT ea.*, mp.display_name, mp.seat "
+            "FROM event_actions ea JOIN match_players mp "
+            "ON mp.match_id = ea.match_id AND mp.player_id = ea.player_id "
+            "WHERE ea.match_id = ? AND ea.round_no = ? ORDER BY mp.seat",
+            (match_id, round_no),
+        ).fetchall()
+
+        event_result: Dict[str, Any] = {"event_id": event_id}
+        if event_id == "black_box":
+            contents = event.get("box_contents")
+            if not isinstance(contents, list) or len(contents) != 3 or set(contents) != {
+                "bonus", "shield", "trap"
+            }:
+                raise StoreError("محتويات الصندوق الأسود غير صالحة.")
+            entries = []
+            shields = []
+            for action in actions:
+                outcome = "لم يختر صندوقًا"
+                delta = 0
+                if action["choice_type"] == "box":
+                    index = action["choice_value"]
+                    if isinstance(index, int) and 0 <= index < len(contents):
+                        outcome = contents[index]
+                        if outcome == "bonus":
+                            delta = 2
+                        elif outcome == "trap":
+                            delta = -min(1, player_map[action["player_id"]]["coins"])
+                        elif outcome == "shield":
+                            shields.append(action["player_id"])
+                if delta:
+                    db.execute(
+                        "UPDATE match_players SET coins = coins + ? "
+                        "WHERE match_id = ? AND player_id = ?",
+                        (delta, match_id, action["player_id"]),
+                    )
+                    self._append_ledger(
+                        db, match_id, round_no, action["player_id"], delta,
+                        "black_box_bonus" if delta > 0 else "black_box_trap", now=now,
+                    )
+                entries.append({
+                    "player_id": action["player_id"],
+                    "player_name": action["display_name"],
+                    "box": (action["choice_value"] + 1)
+                        if action["choice_type"] == "box" and action["choice_value"] is not None else None,
+                    "outcome": outcome,
+                    "delta": delta,
+                })
+            event_result.update({
+                "entries": entries,
+                "shield_player_ids": shields,
+                "description": "كُشفت الصناديق: مكافآت وحمايات وفخاخ مختلفة.",
+            })
+
+        elif event_id == "bomb":
+            if event.get("bomb_holder_id") not in player_map:
+                raise StoreError("لم يتم تحديد حامل القنبلة الأولى.")
+            by_player = {action["player_id"]: action for action in actions}
+            holder_id = event["bomb_holder_id"]
+            visited = []
+            while holder_id not in visited:
+                visited.append(holder_id)
+                action = by_player.get(holder_id)
+                if (
+                    action is None
+                    or action["choice_type"] != "pass"
+                    or action["target_player_id"] not in player_map
+                    or action["target_player_id"] == holder_id
+                    or action["target_player_id"] in visited
+                ):
+                    break
+                holder_id = action["target_player_id"]
+
+            starter = player_map[event["bomb_holder_id"]]["display_name"]
+            final_holder = player_map[holder_id]
+            damage = min(2, final_holder["coins"])
+            if damage:
+                db.execute(
+                    "UPDATE match_players SET coins = coins - ? "
+                    "WHERE match_id = ? AND player_id = ?",
+                    (damage, match_id, holder_id),
+                )
+                self._append_ledger(
+                    db, match_id, round_no, holder_id, -damage, "bomb_penalty", now=now
+                )
+            event_result.update({
+                "starter_name": starter,
+                "path_names": [player_map[item]["display_name"] for item in visited],
+                "final_holder_name": final_holder["display_name"],
+                "damage": damage,
+                "description": (
+                    "انفجرت القنبلة مع %s وخسر %s عملات."
+                    % (final_holder["display_name"], damage)
+                ),
+            })
+
+        elif event_id == "secret_auction":
+            bid_rows = [
+                {
+                    "player_id": action["player_id"],
+                    "player_name": action["display_name"],
+                    "seat": action["seat"],
+                    "amount": action["amount"],
+                }
+                for action in actions
+            ]
+            highest = max((row["amount"] for row in bid_rows), default=0)
+            winner = None
+            if highest > 0:
+                player_count = len(players)
+                tie_start = (round_no - 1) % player_count
+                winner = min(
+                    (row for row in bid_rows if row["amount"] == highest),
+                    key=lambda row: (row["seat"] - 1 - tie_start) % player_count,
+                )
+                db.execute(
+                    "UPDATE match_players SET coins = coins - ? "
+                    "WHERE match_id = ? AND player_id = ?",
+                    (highest, match_id, winner["player_id"]),
+                )
+                self._append_ledger(
+                    db, match_id, round_no, winner["player_id"], -highest,
+                    "secret_auction_bid", now=now,
+                )
+            event_result.update({
+                "entries": [
+                    {"player_name": row["player_name"], "bid": row["amount"]}
+                    for row in bid_rows
+                ],
+                "winner_name": winner["player_name"] if winner else None,
+                "winning_bid": highest if winner else 0,
+                "shield_player_ids": [winner["player_id"]] if winner else [],
+                "description": (
+                    "%s فاز بالمزاد وحصل على حماية مجانية بعد دفع %d عملات."
+                    % (winner["player_name"], highest)
+                    if winner else "لم يقدم أحد عرضًا موجبًا؛ انتهى المزاد دون فائز."
+                ),
+            })
+
+        elif event_id == "court":
+            vote_counts: Dict[str, int] = {}
+            for action in actions:
+                if action["choice_type"] == "vote" and action["target_player_id"] in player_map:
+                    target_id = action["target_player_id"]
+                    vote_counts[target_id] = vote_counts.get(target_id, 0) + 1
+            highest = max(vote_counts.values(), default=0)
+            leaders = [player_id for player_id, count in vote_counts.items() if count == highest]
+            target_id = leaders[0] if highest > 0 and len(leaders) == 1 else None
+            has_majority = target_id is not None and highest > len(players) / 2
+            penalty = 0
+            target_name = player_map[target_id]["display_name"] if target_id else None
+            if has_majority:
+                penalty = min(1, player_map[target_id]["coins"])
+                if penalty:
+                    db.execute(
+                        "UPDATE match_players SET coins = coins - ? "
+                        "WHERE match_id = ? AND player_id = ?",
+                        (penalty, match_id, target_id),
+                    )
+                    self._append_ledger(
+                        db, match_id, round_no, target_id, -penalty,
+                        "court_penalty", now=now,
+                    )
+            event_result.update({
+                "entries": [
+                    {
+                        "player_name": action["display_name"],
+                        "vote_name": (
+                            player_map[action["target_player_id"]]["display_name"]
+                            if action["choice_type"] == "vote"
+                            and action["target_player_id"] in player_map
+                            else "امتناع"
+                        ),
+                    }
+                    for action in actions
+                ],
+                "vote_counts": [
+                    {"player_name": player_map[player_id]["display_name"], "votes": count}
+                    for player_id, count in sorted(
+                        vote_counts.items(), key=lambda item: player_map[item[0]]["seat"]
+                    )
+                ],
+                "target_name": target_name if has_majority else None,
+                "majority": bool(has_majority),
+                "penalty": penalty,
+                "description": (
+                    "%s أُدين بأغلبية مطلقة وخسر %d عملات."
+                    % (target_name, penalty)
+                    if has_majority else "لم تحصل أي قضية على أغلبية مطلقة؛ أُسقطت القضية."
+                ),
+            })
+
+        db.execute(
+            "UPDATE match_rounds SET event_result_json = ? "
+            "WHERE match_id = ? AND round_no = ?",
+            (json.dumps(event_result, ensure_ascii=False), match_id, round_no),
+        )
+        db.execute(
+            "UPDATE matches SET deadline_at = ?, revision = revision + 1, updated_at = ? "
+            "WHERE id = ?",
+            (now + ACTION_SECONDS, now, match_id),
+        )
+
+    def submit_event(
+        self,
+        invite_code: str,
+        player_id: str,
+        request_id: Any,
+        choice_type: Any,
+        target_player_id: Any = None,
+        amount: Any = 0,
+        choice_value: Any = None,
+    ) -> Dict[str, Any]:
+        code = _normalize_code(invite_code)
+        request_id = self._new_request_id(request_id)
+        if not isinstance(choice_type, str):
+            raise InvalidInput("اختيار الحدث غير صالح.")
+        if isinstance(amount, bool) or not isinstance(amount, int):
+            raise InvalidInput("قيمة العرض غير صالحة.")
+        if choice_value is not None and (
+            isinstance(choice_value, bool) or not isinstance(choice_value, int)
+        ):
+            raise InvalidInput("رقم الصندوق غير صالح.")
+        now = int(time.time())
+
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            match = self._room_match(db, code, active_only=True)
+            self._authorize(db, match["id"], player_id)
+
+            previous_request = db.execute(
+                "SELECT * FROM event_actions WHERE match_id = ? AND player_id = ? AND request_id = ?",
+                (match["id"], player_id, request_id),
+            ).fetchone()
+            if previous_request is not None:
+                same = (
+                    previous_request["choice_type"] == choice_type
+                    and previous_request["target_player_id"] == target_player_id
+                    and previous_request["amount"] == amount
+                    and previous_request["choice_value"] == choice_value
+                )
+                if same:
+                    db.commit()
+                    return self.get_state(code, player_id)
+                raise ActionLocked("معرّف هذا الطلب استُخدم لقرار حدث مختلف.")
+
+            round_row = db.execute(
+                "SELECT challenge_result_json, event_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            event = self._round_event(db, match["id"], match["round_no"])
+            event_pending_before_advance = (
+                bool(round_row and round_row["challenge_result_json"])
+                and self._event_requires_input(event["id"])
+                and not round_row["event_result_json"]
+            )
+            self._advance_expired(db, match, now)
+            match = db.execute("SELECT * FROM matches WHERE id = ?", (match["id"],)).fetchone()
+            if not event_pending_before_advance:
+                raise MatchNotActive("لا توجد نافذة قرار حدث مفتوحة الآن.")
+            if now >= match["deadline_at"] and match["phase"] != "actions":
+                raise MatchNotActive("انتهى وقت الحدث؛ تم اعتماد القرارات الافتراضية.")
+            round_row = db.execute(
+                "SELECT challenge_result_json, event_result_json FROM match_rounds "
+                "WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()
+            if (
+                not round_row
+                or not round_row["challenge_result_json"]
+                or round_row["event_result_json"]
+                or not self._event_requires_input(event["id"])
+            ):
+                raise MatchNotActive("انتهت نافذة قرار الحدث.")
+            if match["phase"] != "actions":
+                raise MatchNotActive("مرحلة قرار الحدث غير مفتوحة الآن.")
+
+            current = self._authorize(db, match["id"], player_id)
+            player_count = db.execute(
+                "SELECT COUNT(*) AS count FROM match_players WHERE match_id = ?",
+                (match["id"],),
+            ).fetchone()["count"]
+            if event["id"] == "black_box":
+                if choice_type != "box" or choice_value not in (0, 1, 2):
+                    raise InvalidInput("اختر صندوقًا واحدًا من الصناديق الثلاثة.")
+                if target_player_id is not None or amount != 0:
+                    raise InvalidInput("اختيار الصندوق لا يحتاج إلى لاعب أو مبلغ.")
+            elif event["id"] == "bomb":
+                if choice_type not in ("keep", "pass"):
+                    raise InvalidInput("اختر الاحتفاظ بالقنبلة أو تمريرها.")
+                if choice_type == "pass":
+                    if not isinstance(target_player_id, str) or not target_player_id:
+                        raise InvalidInput("اختر اللاعب الذي ستمرر إليه القنبلة.")
+                    self._authorize(db, match["id"], target_player_id)
+                    if target_player_id == player_id:
+                        raise InvalidInput("لا يمكنك تمرير القنبلة إلى نفسك.")
+                elif target_player_id is not None:
+                    raise InvalidInput("الاحتفاظ بالقنبلة لا يحتاج إلى هدف.")
+                if amount != 0 or choice_value is not None:
+                    raise InvalidInput("هذا القرار لا يحتاج إلى مبلغ أو رقم صندوق.")
+            elif event["id"] == "secret_auction":
+                if choice_type != "bid" or target_player_id is not None or choice_value is not None:
+                    raise InvalidInput("أدخل عرضًا سريًا فقط.")
+                if not 0 <= amount <= 3 or amount > current["coins"]:
+                    raise InvalidInput("يجب أن يكون عرضك بين صفر وثلاث عملات وبحدود رصيدك.")
+            elif event["id"] == "court":
+                if choice_type == "vote":
+                    if not isinstance(target_player_id, str) or not target_player_id:
+                        raise InvalidInput("اختر لاعبًا آخر للتصويت عليه.")
+                    self._authorize(db, match["id"], target_player_id)
+                    if target_player_id == player_id:
+                        raise InvalidInput("لا يمكنك التصويت ضد نفسك.")
+                elif choice_type == "abstain":
+                    if target_player_id is not None:
+                        raise InvalidInput("الامتناع لا يحتاج إلى هدف.")
+                else:
+                    raise InvalidInput("اختر لاعبًا أو امتنع عن التصويت.")
+                if amount != 0 or choice_value is not None:
+                    raise InvalidInput("التصويت لا يحتاج إلى مبلغ أو رقم صندوق.")
+
+            existing = db.execute(
+                "SELECT * FROM event_actions WHERE match_id = ? AND round_no = ? AND player_id = ?",
+                (match["id"], match["round_no"], player_id),
+            ).fetchone()
+            if existing is not None:
+                same = (
+                    existing["request_id"] == request_id
+                    and existing["choice_type"] == choice_type
+                    and existing["target_player_id"] == target_player_id
+                    and existing["amount"] == amount
+                    and existing["choice_value"] == choice_value
+                )
+                if same:
+                    db.commit()
+                    return self.get_state(code, player_id)
+                raise ActionLocked("تم قفل قرارك لهذا الحدث.")
+
+            db.execute(
+                "INSERT INTO event_actions "
+                "(match_id, round_no, player_id, choice_type, target_player_id, amount, "
+                "choice_value, request_id, submitted_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    match["id"], match["round_no"], player_id, choice_type,
+                    target_player_id, amount, choice_value, request_id, now,
+                ),
+            )
+            submitted = db.execute(
+                "SELECT COUNT(*) AS count FROM event_actions WHERE match_id = ? AND round_no = ?",
+                (match["id"], match["round_no"]),
+            ).fetchone()["count"]
+            if submitted >= player_count:
+                self._resolve_event_choices(db, match, now)
+            else:
+                db.execute(
+                    "UPDATE matches SET revision = revision + 1, updated_at = ? WHERE id = ?",
+                    (now, match["id"]),
+                )
+            db.commit()
+
+        return self.get_state(code, player_id)
+
     def _insert_timeout_passes(self, db: sqlite3.Connection, match: sqlite3.Row, now: int) -> None:
         db.execute(
             "INSERT OR IGNORE INTO round_actions "
