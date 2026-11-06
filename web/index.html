@@ -135,6 +135,25 @@
           <div id="roundEventEffect" class="round-event-effect"></div>
         </div>
 
+        <div id="challengePanel" class="game-section-card challenge-panel hidden">
+          <div class="eyebrow">تحدي الجولة — للجميع</div>
+          <h3 id="challengeTitle">سؤال الجولة</h3>
+          <p id="challengeFamily" class="muted">حساب وتركيز</p>
+          <p id="challengePrompt" class="challenge-prompt">يظهر السؤال هنا.</p>
+          <p class="action-help">اختر إجابتك سرًا خلال 25 ثانية. الإجابة الصحيحة تمنحك عملتين. الإجابة الخاطئة أو عدم الإجابة لا تخصم منك شيئًا.</p>
+          <label for="challengeAnswer">إجابتك</label>
+          <select id="challengeAnswer" class="text-input"><option value="">اختر إجابتك</option></select>
+          <button id="challengeSubmit" class="button button-primary" type="button">أرسل إجابتي السرية</button>
+          <div id="challengeStatus" class="notice" role="status" aria-live="polite">إجابات اللاعبين سرية حتى يكشفها الخادم معًا.</div>
+        </div>
+
+        <div id="challengeSummary" class="challenge-summary hidden" aria-live="polite">
+          <div class="eyebrow">كشف إجابات التحدي</div>
+          <h3 id="challengeCorrectAnswer">الإجابة الصحيحة</h3>
+          <p id="challengeExplanation" class="muted"></p>
+          <div id="challengeResults" class="challenge-results"></div>
+        </div>
+
         <div class="game-section-card">
           <div class="players-heading">
             <h3>أرصدة اللاعبين</h3>
