@@ -64,12 +64,14 @@ Automated tests cover a full eight-round match and the critical concurrency/priv
 Exit criteria: all match actions and phase transitions resolve correctly on all supported browsers and physical devices.
 
 ### Milestone F — Expand the challenge and chaos systems
-- Replaced the fixed eight-question deck with generated questions from eight family-friendly formats: arithmetic, patterns, time, memory, odd-one-out, and sum comparison.
+- Replaced the fixed question deck with dynamic Arabic challenges spanning arithmetic, patterns, time, memory, attention, find-the-lie, and hidden-dice prediction.
+- Added a rotating four-player duel challenge: the server privately pairs opponents, rotates through all three pairing patterns, and awards +3 to a sole correct player or +2 to each player on a correct draw.
 - Added a permanent SQLite question-history table keyed by normalized prompt and order-independent answer-choice fingerprint. Questions are not reused across rematches, separate rooms, server restarts, or upgraded old databases; legacy fixed-deck questions are migrated into the history.
-- Added tests for question diversity, full-question fingerprinting, legacy-history migration, global no-repeat across matches and engine restart, and all eight rounds without reuse.
+- Added tests for mode validity, lie/prediction answer correctness, duel privacy/scoring/pair rotation, question diversity, full-question fingerprinting, legacy-history migration, global no-repeat across matches and engine restart, and all eight rounds without reuse.
 - Added a visible five-step round roadmap and exact phase descriptions for challenge, secret action, reveal, conditional revenge, and result.
+- Added mode-specific explanations before answering and clear outcome panels after reveal.
 - Implemented the first event deck: Market Rush, Free Guard, Bounty, Double Revenge, and High Stakes; cards persist per round and cannot repeat immediately.
-- Expand the challenge library with bluffing, predictions, memory, visual attention, and head-to-head formats; keep all answer validation and rewards on the server.
+- Expand the challenge library with additional family-friendly mini-games beyond the implemented quiz, bluff, prediction, and four-player duel modes; keep all answer validation and rewards on the server.
 - Add bluff, trap, and the remaining agreed secret actions.
 - Expand revenge cards beyond the current counterstrike foundation.
 - Implement the larger event catalogue: Black Box, Bomb, Temporary King, Chaos, Secret Auction, and Court.
@@ -99,7 +101,7 @@ Exit criteria: a complete three-or-four-player game is playable start to finish 
 ## 5. Automated test coverage currently present
 
 - Store: room creation, 3/4 readiness thresholds, distinct seats, fifth-player rejection, duplicate/invalid names, session recovery, leave/rejoin, active-room lock, and concurrent joins.
-- Match engine: 3/4 player starts, concurrent start idempotency, generated private challenge answers, persistent no-repeat history and migration, challenge rewards/timeouts, secret actions, guard, theft, wager, revenge eligibility/charges, five event effects and event persistence, duplicate requests, deadlines, and a complete eight-round match.
+- Match engine: 3/4 player starts, concurrent start idempotency, four challenge modes including rotating duel pairings, generated private challenge answers, persistent no-repeat history and migration, challenge rewards/timeouts, secret actions, guard, theft, wager, revenge eligibility/charges, five event effects and event persistence, duplicate requests, deadlines, and a complete eight-round match.
 - UI contracts: legacy-browser syntax, all challenge/round-flow IDs, no-repeat guidance, and per-stage plain-language explanations.
 - HTTP: health/static routes, cookies, session recovery, room/match APIs, active membership lock, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
