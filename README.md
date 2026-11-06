@@ -17,7 +17,7 @@ The first real application foundation is now in the repository:
 - A responsive Arabic RTL lobby interface built with conservative JavaScript and CSS.
 - Automated tests for room capacity, sessions, security checks, and concurrent joins.
 
-**The base eight-round match engine is now implemented with secret simultaneous actions, coin transfers, timed phases, and bounded counterstrike revenge. The full challenge library, random event catalogue, remaining action families, and final visual/audio polish are still being built.** The current match engine handles an eight-round core loop with secret actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, and final ranking. The challenge library, additional bluff/trap actions, event deck, comeback tuning, match statistics, and complete visual/audio polish remain to be integrated.
+**The base eight-round match engine is implemented.** It supports secret simultaneous actions, coin settlement, guard, steal, wager, pass, bounded counterstrike revenge, automatic deadlines, and final ranking. The full challenge library, additional bluff/trap actions, random event deck, comeback tuning, match statistics, and complete visual/audio polish remain to be integrated.
 
 ## Fixed product requirements
 
