@@ -12,7 +12,7 @@ import json
 import secrets
 import unicodedata
 import uuid
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 CHALLENGE_SECONDS = 25
 CHALLENGE_REWARD = 2
@@ -416,7 +416,9 @@ _MODE_GENERATORS = {
 }
 
 
-def generate_challenge(player_count: int = 3, mode: str = None) -> Dict[str, Any]:
+def generate_challenge(
+    player_count: int = 3, mode: Optional[str] = None
+) -> Dict[str, Any]:
     """Generate a family challenge; duels are only available with four players."""
     if player_count not in (3, 4):
         raise ValueError("Challenge generation requires three or four players.")
