@@ -24,7 +24,7 @@ The Android devices could join the laptop hotspot, but the page still did not lo
 
 The owner confirmed that the basic connection, room creation, room joining, and lobby flows work through the temporary HTTPS Quick Tunnel URL. On 2026-11-06 the owner additionally reported that the current game interface and match controls work across the connected phones, and that the iPhone 4S / Safari 9.3.6 runs the game correctly.
 
-This is owner-reported physical-device feedback. It does not independently verify every orientation, narrow viewport, disconnect/reconnect case, or a complete eight-round run.
+This is owner-reported physical-device feedback for the lobby and match arena as they existed before the timed quiz expansion. The new challenge panel and answer-reveal screen were added afterward and have not yet been confirmed on physical devices. It also does not independently verify every orientation, narrow viewport, disconnect/reconnect case, or a complete eight-round run.
 
 ## Diagnostic message behavior
 
@@ -44,7 +44,7 @@ The current diagnostic page posts to the server's in-memory message feed. Each o
 
 ## Automated checks run during development
 
-The repository test suite now contains 52 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, private timed challenge submissions and scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest GitHub Actions run passed: [run 75 — all 52 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264655578).
+The repository test suite now contains 52 tests across room storage, concurrent seat allocation, HTTP APIs, UI/legacy-browser contracts, private timed challenge submissions and scoring, match actions, revenge, five round-event mechanics and persistence, deadlines, and a complete eight-round lifecycle. The latest GitHub Actions run passed: [run 83 — all 52 tests and source checks successful](https://github.com/aboudalshikhyossef-boop/play/actions/runs/42264954447).
 
 Local checks also include:
 - Python compileall.
@@ -55,7 +55,7 @@ These checks were run in the development container. They are not a substitute fo
 
 ## Match-engine verification status
 
-The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the match arena and controls are working across the connected phones, including the iPhone 4S.
+The committed test suite includes server-side tests for 3-player and 4-player starts, room locking after match start, private challenge answers and scoring, challenge timeouts and no-penalty behavior, answer idempotency, action idempotency, guard, steal, wager, revenge limits, five persisted round events and their effects, timeout passes, and the complete eight-round lifecycle. The owner reports that the original match arena and controls worked across the connected phones, including the iPhone 4S. The timed challenge panel and answer-reveal screen are newer and remain pending physical acceptance.
 
 ## Required acceptance criteria
 
