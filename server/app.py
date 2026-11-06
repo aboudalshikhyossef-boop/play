@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
+from .engine import MatchEngine
 from .store import GameStore, InvalidInput, StoreError
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -117,7 +118,7 @@ def _safe_request_origin(handler: BaseHTTPRequestHandler) -> bool:
     return bool(parsed.netloc) and parsed.netloc.lower() == host and parsed.scheme in ("http", "https")
 
 
-def make_handler(store: GameStore, message_bus: MessageBus, rate_limiter: RateLimiter):
+def make_handler(store: GameStore, engine: MatchEngine, message_bus: MessageBus, rate_limiter: RateLimiter):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ChaosFamilyBattle/1.0"
         sys_version = ""
@@ -222,6 +223,16 @@ def make_handler(store: GameStore, message_bus: MessageBus, rate_limiter: RateLi
                     self._error(error)
                 return
 
+            match_state = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match", path)
+            if match_state:
+                try:
+                    session = store.get_room_for_session(match_state.group(1), _session_from_cookie(self))
+                    state = engine.get_state(match_state.group(1), session["player_id"])
+                    self._json(200, state)
+                except StoreError as error:
+                    self._error(error)
+                return
+
             match = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/?", path)
             if match:
                 try:
@@ -258,6 +269,40 @@ def make_handler(store: GameStore, message_bus: MessageBus, rate_limiter: RateLi
 
                 data = _read_json(self)
                 current_token = _session_from_cookie(self)
+
+                start_match = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/start", path)
+                if start_match:
+                    session = store.get_room_for_session(start_match.group(1), current_token)
+                    state = engine.start_match(start_match.group(1), session["player_id"])
+                    self._json(201, state)
+                    return
+
+                submit_action = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/action", path)
+                if submit_action:
+                    session = store.get_room_for_session(submit_action.group(1), current_token)
+                    state = engine.submit_action(
+                        submit_action.group(1),
+                        session["player_id"],
+                        data.get("request_id"),
+                        data.get("action"),
+                        data.get("target_player_id"),
+                        data.get("amount", 0),
+                    )
+                    self._json(200, state)
+                    return
+
+                submit_revenge = re.fullmatch(r"/api/rooms/([A-Za-z0-9]+)/match/revenge", path)
+                if submit_revenge:
+                    session = store.get_room_for_session(submit_revenge.group(1), current_token)
+                    state = engine.submit_revenge(
+                        submit_revenge.group(1),
+                        session["player_id"],
+                        data.get("request_id"),
+                        data.get("action"),
+                        data.get("target_player_id"),
+                    )
+                    self._json(200, state)
+                    return
 
                 if path == "/api/messages":
                     message = data.get("message", "")
@@ -334,10 +379,12 @@ def create_server(
     if host not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("The CHAOS server must bind to loopback only.")
     store = GameStore(database_path)
+    engine = MatchEngine(store)
     bus = MessageBus()
     limiter = RateLimiter()
-    server = ChaosHTTPServer((host, port), make_handler(store, bus, limiter))
+    server = ChaosHTTPServer((host, port), make_handler(store, engine, bus, limiter))
     server.chaos_store = store
+    server.chaos_engine = engine
     server.message_bus = bus
     server.rate_limiter = limiter
     return server
