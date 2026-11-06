@@ -76,7 +76,12 @@ class LegacyUIContractTests(unittest.TestCase):
             "challengeMode", "challengeModeHelp", "challengeOpponent",
             "challengeDuelResults",
             "roundFlow", "roundFlowStatus", "flowChallenge", "flowAction",
-            "flowReveal", "flowRevenge", "flowResult"
+            "flowReveal", "flowRevenge", "flowResult",
+            "flowEvent", "eventPanel", "eventTitle", "eventDescription",
+            "eventRule", "eventChoice", "eventTargetWrap", "eventTarget",
+            "eventAmountWrap", "eventAmount", "eventSubmit", "eventStatus",
+            "eventResultPanel", "eventResultTitle", "eventResultDescription",
+            "eventResultRows"
         }
         self.assertTrue(required.issubset(html_ids))
         self.assertIn("MIN_PLAYERS = 3", self.engine)
@@ -89,8 +94,14 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn("function renderRoundEvent(event)", self.js)
         self.assertIn('byId("rulesToggle").onclick = toggleRules', self.js)
         self.assertIn('var isHidden = /\\bhidden\\b/', self.js)
-        for event_id in ("market_rush", "free_guard", "bounty", "double_revenge", "high_stakes"):
+        for event_id in (
+            "market_rush", "free_guard", "bounty", "double_revenge", "high_stakes",
+            "black_box", "bomb", "temporary_king", "secret_auction", "court",
+        ):
             self.assertIn(event_id, self.engine)
+        self.assertIn("EVENT_SECONDS = 20", self.engine)
+        self.assertIn("CREATE TABLE IF NOT EXISTS event_actions", self.engine)
+        self.assertIn("event_result_json", self.engine)
 
     def test_round_challenge_is_a_private_server_scored_stage(self):
         self.assertIn("function renderChallenge(challenge, result, state)", self.js)
@@ -102,6 +113,18 @@ class LegacyUIContractTests(unittest.TestCase):
         self.assertIn("challenge_result_json", self.engine)
         self.assertIn("correct_index", self.challenge_source)
         self.assertIn("challenge_submitted", self.engine)
+
+    def test_large_chaos_events_have_private_controls_and_public_reveals(self):
+        self.assertIn("/match/event", self.app)
+        self.assertIn("function renderEventPanel(state)", self.js)
+        self.assertIn("function submitEvent()", self.js)
+        self.assertIn('byId("eventSubmit").onclick = submitEvent', self.js)
+        self.assertIn("event_submitted_count", self.engine)
+        self.assertIn("shield_player_ids", self.engine)
+        for phrase in ("الصندوق الأسود", "القنبلة المتنقلة", "الملك المؤقت", "المزاد السري", "المحكمة"):
+            self.assertIn(phrase, self.engine)
+        self.assertIn(".event-panel", self.css)
+        self.assertIn(".event-result-panel", self.css)
 
     def test_bluff_prediction_and_duel_modes_are_explained_in_the_ui(self):
         for mode in ("bluff", "prediction", "duel"):
