@@ -29,7 +29,7 @@ The application creates its own data folder with restricted permissions and atte
 - A player who leaves releases their seat; the room code remains usable until expiry.
 - Disconnected players retain their seat so a temporary network interruption does not create a duplicate player.
 - The connection indicator is based on recent server activity, not a client-side claim.
-- All four players must be present and ready before the lobby reports all-ready.
+- All four players must be present, recently connected, and ready before the lobby reports all-ready.
 
 No start-match endpoint is exposed until the authoritative round engine is implemented and tested.
 
