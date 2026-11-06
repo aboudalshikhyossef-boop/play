@@ -622,6 +622,7 @@
       choiceSelect.setAttribute("data-event-key", eventKey);
       choiceSelect.value = "";
       byId("eventAmount").value = "0";
+      byId("eventTarget").value = "";
     }
 
     if (active) {
@@ -639,9 +640,6 @@
         rule + " لديك 20 ثانية. قرارات الجميع سرية حتى ينتهي الحدث."
       );
       fillTargets(byId("eventTarget"), state.players || [], null, true);
-      if (eventChanged) {
-        byId("eventTarget").value = "";
-      }
 
       var submitted = !!state.private.event_submitted;
       var myCoins = 0;
