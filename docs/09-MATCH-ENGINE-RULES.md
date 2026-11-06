@@ -77,14 +77,14 @@ All event choices are stored in `event_actions` and resolved by the server. The 
 
 | Action | Rule |
 |---|---|
-| Steal | Choose one other player. Attempt to transfer up to 2 coins from that player to yourself (up to 3 during Market Rush). |
-| Guard | Pay 1 coin. All theft attempts targeting you in the current round are blocked (free during Free Guard). |
+| Steal | Choose one other player. Attempt to transfer up to 2 coins from that player to yourself (up to 3 during Market Rush or when you are the Temporary King). |
+| Guard | Pay 1 coin. All theft attempts targeting you in the current round are blocked (free during Free Guard or when you are the Temporary King). |
 | Wager | Stake 1, 2, or 3 coins. The server uses a cryptographically secure 50/50 result. A win gives net profit equal to the stake (twice the stake during High Stakes); a loss removes the stake. |
 | Pass | Submit no action for the round. |
 
 All balances are resolved on the server. The engine never accepts a balance or claimed result from a browser. Coin balances cannot become negative.
 
-If multiple players target the same unguarded player, theft attempts resolve in ascending attacker seat order. Each attempt can take up to 2 coins (or 3 during Market Rush), limited by the target's remaining balance. A guard blocks every theft attempt against that player for the round; it costs one coin even when nobody attacks unless the Free Guard event is active. A successful theft during the Bounty event also grants the thief one ledger-recorded bonus coin from the game bank.
+If multiple players target the same unguarded player, theft attempts resolve in ascending attacker seat order. Each attempt can take up to 2 coins (or 3 during Market Rush or when the attacker is the Temporary King), limited by the target's remaining balance. A guard blocks every theft attempt against that player for the round; it costs one coin even when nobody attacks unless the Free Guard event is active or the guarding player is the Temporary King. Free shields from Black Box and Secret Auction, plus the Temporary King's crown protection, are applied before attack resolution and do not require a paid Guard action. A successful theft during the Bounty event also grants the thief one ledger-recorded bonus coin from the game bank.
 
 ## Revenge
 
