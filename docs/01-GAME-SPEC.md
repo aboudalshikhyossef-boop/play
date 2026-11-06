@@ -47,7 +47,7 @@ The rules must explain all costs, rewards, caps, and tie-breakers before a match
 8. Settlement: balances, effects, public events, and rankings are updated.
 9. Transition: next round begins after clients receive the settled state.
 
-A match contains eight rounds. The current engine timing is 60 seconds for secret action selection, 15 seconds for an eligible revenge window, and 10 seconds for the result display. These are initial implementation values and must be tuned through playtesting.
+A match contains eight rounds. Each round currently starts with a 25-second simultaneous multiple-choice challenge; a correct answer earns 2 coins, while an incorrect or missing answer earns nothing and costs nothing. Challenge answers remain private until the shared reveal. The secret action selection then lasts 60 seconds, an eligible revenge window lasts 15 seconds, and the result display lasts 10 seconds. These are initial implementation values and must be tuned through playtesting.
 
 ## 6. Secret actions
 Initial action families:
@@ -103,7 +103,7 @@ The game must rotate among varied challenge families:
 
 Correct answers are not the only path to winning. Challenges can award coins, temporary powers, protection, information, or tactical opportunities.
 
-Content must be stored separately from game logic and support Arabic text. Avoid requiring specialist knowledge or obscure trivia.
+Content must be stored separately from game logic and support Arabic text. Avoid requiring specialist knowledge or obscure trivia. The first implemented deck contains eight accessible Arabic multiple-choice questions covering everyday arithmetic, simple patterns, time, attention, and familiar logic; broader formats remain part of the planned library.
 
 ## 10. Anti-repetition and comeback
 The variation system should avoid the same challenge family in consecutive rounds where possible, avoid recently used events until the pool requires reuse, vary order/targets/rewards/modifiers, and apply comeback opportunities carefully so they do not erase skill. Avoid long idle waits; use simultaneous or parallel decisions where practical.
