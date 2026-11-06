@@ -100,6 +100,10 @@ class LegacyUIContractTests(unittest.TestCase):
         ):
             self.assertIn(event_id, self.engine)
         self.assertIn("EVENT_SECONDS = 20", self.engine)
+        self.assertIn("تجاوز الصندوق دون خسارة", self.engine)
+        self.assertIn("يُحتفظ بالقنبلة", self.engine)
+        self.assertIn("يُحسب عرضًا بصفر", self.engine)
+        self.assertIn("يُحسب امتناعًا", self.engine)
         self.assertIn("CREATE TABLE IF NOT EXISTS event_actions", self.engine)
         self.assertIn("event_result_json", self.engine)
 
