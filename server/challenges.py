@@ -109,10 +109,25 @@ _ODD_GROUPS = (
 )
 
 
-def challenge_fingerprint(prompt: str) -> str:
-    """Stable SHA-256 identity for a prompt, independent of whitespace."""
-    normalized = " ".join(unicodedata.normalize("NFKC", prompt).split()).casefold()
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+def challenge_fingerprint(prompt: str, options: Sequence[str] = ()) -> str:
+    """Stable identity for the full question and its option set.
+
+    Sorting normalized options means reordering the same choices does not make
+    an old question appear new. The prompt itself is kept intact after cleanup.
+    """
+    normalized_prompt = " ".join(
+        unicodedata.normalize("NFKC", prompt).split()
+    ).casefold()
+    normalized_options = sorted(
+        " ".join(unicodedata.normalize("NFKC", option).split()).casefold()
+        for option in options
+    )
+    canonical = json.dumps(
+        [normalized_prompt, normalized_options],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _random_int(low: int, high: int) -> int:
