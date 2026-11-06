@@ -1,4 +1,5 @@
 import concurrent.futures
+import json
 from contextlib import closing
 import tempfile
 import time
@@ -10,6 +11,7 @@ from server.engine import (
     ActionLocked,
     MatchEngine,
     MatchNotReady,
+    ROUND_EVENTS,
 )
 from server.store import GameStore, InvalidInput, RoomNotOpen
 
@@ -38,6 +40,13 @@ class MatchEngineTests(unittest.TestCase):
         code, tokens = self.create_ready_room(count)
         state = self.engine.start_match(code, self.store.get_session(tokens[0])["player_id"])
         return code, tokens, state
+
+    def set_round_event(self, match_id, round_no, event_id):
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_rounds SET event_json = ? WHERE match_id = ? AND round_no = ?",
+                (json.dumps(ROUND_EVENTS[event_id], ensure_ascii=False), match_id, round_no),
+            )
 
     def test_three_players_can_start_a_match(self):
         _code, _tokens, state = self.start(3)
@@ -221,6 +230,118 @@ class MatchEngineTests(unittest.TestCase):
                 self.assertEqual(len(state["ranking"]), 3)
                 self.assertEqual(state["ranking"][0]["coins"], 10)
 
+
+
+    def test_round_events_are_shared_persisted_and_do_not_repeat_back_to_back(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.assertEqual(state["round_event"]["id"], "opening")
+
+        for index, player_id in enumerate(ids):
+            state = self.engine.submit_action(
+                code, player_id, "opening-pass-%02d" % index, "pass"
+            )
+        self.assertEqual(state["phase"], "result")
+
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                (int(time.time()) - 1, state["match_id"]),
+            )
+        round_two = self.engine.get_state(code, ids[0])
+        same_card = self.engine.get_state(code, ids[2])
+        self.assertEqual(round_two["round"], 2)
+        self.assertIn(round_two["round_event"]["id"], ROUND_EVENTS)
+        self.assertNotEqual(round_two["round_event"]["id"], "opening")
+        self.assertEqual(round_two["round_event"], same_card["round_event"])
+
+        for index, player_id in enumerate(ids):
+            state = self.engine.submit_action(
+                code, player_id, "second-pass-%02d" % index, "pass"
+            )
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                (int(time.time()) - 1, state["match_id"]),
+            )
+        round_three = self.engine.get_state(code, ids[0])
+        self.assertNotEqual(
+            round_three["round_event"]["id"], round_two["round_event"]["id"]
+        )
+
+    def test_market_rush_increases_successful_steal_limit_to_three(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.set_round_event(state["match_id"], 1, "market_rush")
+        self.engine.submit_action(code, ids[0], "market-steal-0001", "steal", ids[1], 0)
+        self.engine.submit_action(code, ids[1], "market-pass-0001", "pass")
+        result = self.engine.submit_action(code, ids[2], "market-pass-0002", "pass")
+        balances = {p["id"]: p["coins"] for p in result["players"]}
+        self.assertEqual(balances[ids[0]], 13)
+        self.assertEqual(balances[ids[1]], 7)
+        self.assertEqual(result["result"]["thefts"][0]["amount"], 3)
+
+    def test_free_guard_blocks_theft_even_with_zero_coins(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.set_round_event(state["match_id"], 1, "free_guard")
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_players SET coins = 0 WHERE match_id = ? AND player_id = ?",
+                (state["match_id"], ids[1]),
+            )
+        self.engine.submit_action(code, ids[0], "free-guard-steal-01", "steal", ids[1], 0)
+        self.engine.submit_action(code, ids[1], "free-guard-guard-01", "guard")
+        result = self.engine.submit_action(code, ids[2], "free-guard-pass-01", "pass")
+        balances = {p["id"]: p["coins"] for p in result["players"]}
+        self.assertEqual(balances[ids[1]], 0)
+        self.assertEqual(result["result"]["blocked_attacks"][0]["reason"], "guarded")
+
+    def test_bounty_event_records_bonus_in_ledger_and_public_result(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.set_round_event(state["match_id"], 1, "bounty")
+        self.engine.submit_action(code, ids[0], "bounty-steal-0001", "steal", ids[1], 0)
+        self.engine.submit_action(code, ids[1], "bounty-pass-0001", "pass")
+        result = self.engine.submit_action(code, ids[2], "bounty-pass-0002", "pass")
+        balances = {p["id"]: p["coins"] for p in result["players"]}
+        self.assertEqual(balances[ids[0]], 13)
+        self.assertEqual(result["result"]["thefts"][0]["bonus"], 1)
+        with closing(self.store._connect()) as db:
+            bonus = db.execute(
+                "SELECT delta FROM coin_ledger WHERE match_id = ? AND player_id = ? AND reason = 'event_bounty'",
+                (state["match_id"], ids[0]),
+            ).fetchone()
+        self.assertEqual(bonus["delta"], 1)
+
+    def test_double_revenge_event_transfers_up_to_two_coins_once(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.set_round_event(state["match_id"], 1, "double_revenge")
+        self.engine.submit_action(code, ids[0], "double-revenge-steal1", "steal", ids[1], 0)
+        self.engine.submit_action(code, ids[1], "double-revenge-pass1", "pass")
+        state = self.engine.submit_action(code, ids[2], "double-revenge-pass2", "pass")
+        self.assertEqual(state["phase"], "revenge")
+        settled = self.engine.submit_revenge(
+            code, ids[1], "double-revenge-hit1", "counterstrike", ids[0]
+        )
+        balances = {p["id"]: p["coins"] for p in settled["players"]}
+        self.assertEqual(balances[ids[0]], 10)
+        self.assertEqual(balances[ids[1]], 10)
+        self.assertEqual(settled["result"]["revenge_results"][0]["amount"], 2)
+        self.assertEqual(settled["private"]["revenge_charges"], 1)
+
+    def test_high_stakes_event_doubles_net_winnings_but_not_losses(self):
+        code, tokens, state = self.start(3)
+        ids = [p["id"] for p in state["players"]]
+        self.set_round_event(state["match_id"], 1, "high_stakes")
+        with patch("server.engine.secrets.randbelow", return_value=1):
+            self.engine.submit_action(code, ids[0], "high-stakes-win-001", "wager", None, 3)
+            self.engine.submit_action(code, ids[1], "high-stakes-pass-001", "pass")
+            result = self.engine.submit_action(code, ids[2], "high-stakes-pass-002", "pass")
+        balances = {p["id"]: p["coins"] for p in result["players"]}
+        self.assertEqual(balances[ids[0]], 16)
+        self.assertEqual(result["result"]["wagers"][0]["delta"], 6)
 
 if __name__ == "__main__":
     unittest.main()
