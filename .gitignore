@@ -10,8 +10,11 @@ venv/
 *.sqlite3
 *.db
 *.log
+*.pid
 .env
 .env.*
+.chaos-runtime/
+.cloudflare-tunnel/
 
 # Local operating-system files
 .DS_Store
