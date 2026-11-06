@@ -32,12 +32,11 @@ The goal is one complete game, not a sequence of reduced public releases. Develo
 - Automated unit and HTTP API tests.
 - GitHub Actions checks for Python, shell scripts, and JavaScript syntax.
 
-### Physical compatibility — partially verified
+### Physical compatibility — current application confirmed by owner; edge acceptance remains
 
-- The owner confirmed the Quick Tunnel test page opens in iPhone 4S Safari 9.3.6.
-- The owner confirmed the basic Cloudflare connection, room creation, joining, and lobby operation on the intended devices.
-- The owner specifically confirmed the page/lobby connection on iPhone 4S Safari 9.3.6.
-- The newly added match arena and action controls still require physical-device acceptance, including iPhone portrait/landscape.
+- The owner confirmed the Quick Tunnel connection, room creation, joining, and lobby operation on the intended devices.
+- On 2026-11-06, the owner reported that the current game interface and match controls work across the connected phones, and specifically that the iPhone 4S runs the game correctly.
+- Detailed 320 CSS px, portrait/landscape, reconnect, and complete 8-round acceptance are still tracked as separate edge-case checks.
 
 ## 4. Remaining implementation sequence
 
@@ -63,12 +62,13 @@ Automated tests cover a full eight-round match and the critical concurrency/priv
 
 Exit criteria: all match actions and phase transitions resolve correctly on all supported browsers and physical devices.
 
-### Milestone F — Complete challenge and chaos systems
+### Milestone F — Expand the challenge and chaos systems
+- The first event deck is implemented: Market Rush, Free Guard, Bounty, Double Revenge, and High Stakes; cards persist per round and cannot repeat immediately.
 - Add the varied challenge library and server-validated challenge outcomes.
 - Add bluff, trap, and the remaining agreed secret actions.
 - Expand revenge cards beyond the current counterstrike foundation.
-- Implement the complete random-event catalogue: Black Box, Bomb, Temporary King, Chaos, Secret Auction, and Court.
-- Implement comeback balancing and anti-repetition.
+- Implement the larger event catalogue: Black Box, Bomb, Temporary King, Chaos, Secret Auction, and Court.
+- Improve comeback balancing and longer-term anti-repetition.
 - Add full match statistics and additional tie-break/play-balance tests.
 
 Exit criteria: every mechanic has rules, player UI states, server validation, and tests.
@@ -94,7 +94,7 @@ Exit criteria: a complete three-or-four-player game is playable start to finish 
 ## 5. Automated test coverage currently present
 
 - Store: room creation, 3/4 readiness thresholds, distinct seats, fifth-player rejection, duplicate/invalid names, session recovery, leave/rejoin, active-room lock, and concurrent joins.
-- Match engine: 3/4 player starts, concurrent start idempotency, secret actions, guard, theft, wager, revenge eligibility/charges, duplicate requests, deadlines, and a complete eight-round match.
+- Match engine: 3/4 player starts, concurrent start idempotency, secret actions, guard, theft, wager, revenge eligibility/charges, five event effects and event persistence, duplicate requests, deadlines, and a complete eight-round match.
 - HTTP: health/static routes, cookies, session recovery, room/match APIs, active membership lock, cross-origin rejection, rate limiting, and shared diagnostic feed.
 
 Run:
