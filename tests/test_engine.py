@@ -68,6 +68,21 @@ class MatchEngineTests(unittest.TestCase):
         state = self.answer_challenge_for_all(code, state)
         return code, tokens, state
 
+    def set_round_event_payload(self, match_id, round_no, event):
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_rounds SET event_json = ? WHERE match_id = ? AND round_no = ?",
+                (json.dumps(event, ensure_ascii=False), match_id, round_no),
+            )
+
+    def start_with_event(self, count, event):
+        code, tokens = self.create_ready_room(count)
+        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        state = self.engine.start_match(code, player_ids[0])
+        self.set_round_event_payload(state["match_id"], state["round"], event)
+        state = self.answer_challenge_for_all(code, state)
+        return code, tokens, player_ids, state
+
     def set_round_event(self, match_id, round_no, event_id):
         with closing(self.store._connect()) as db:
             db.execute(
@@ -659,6 +674,231 @@ class MatchEngineTests(unittest.TestCase):
                 [view["challenge"]["duel_opponent"] for view in next_views],
                 ["Player 3", "Player 4", "Player 1", "Player 2"],
             )
+
+
+    def test_black_box_choices_are_private_scored_and_shield_blocks_theft(self):
+        event = dict(
+            ROUND_EVENTS["black_box"],
+            box_contents=["bonus", "shield", "trap"],
+        )
+        code, tokens, ids, state = self.start_with_event(3, event)
+        self.assertEqual(state["phase"], "event")
+        self.assertNotIn("box_contents", state["round_event"])
+        self.assertIsNone(state["event_result"])
+
+        second_view = self.engine.get_state(code, ids[1])
+        self.assertFalse(second_view["private"]["event_submitted"])
+        self.assertIsNone(second_view["event_result"])
+
+        choices = [0, 1, 2]
+        for index, player_id in enumerate(ids):
+            state = self.engine.submit_event(
+                code, player_id, "black-box-%02d" % index,
+                "box", amount=0, choice_value=choices[index],
+            )
+        self.assertEqual(state["phase"], "actions")
+        self.assertEqual([p["coins"] for p in state["players"]], [12, 10, 9])
+        self.assertEqual(state["event_result"]["shield_names"], ["Player 2"])
+        self.assertNotIn("shield_player_ids", state["event_result"])
+        self.assertEqual(
+            [row["outcome"] for row in state["event_result"]["entries"]],
+            ["bonus", "shield", "trap"],
+        )
+
+        state = self.engine.submit_action(code, ids[0], "black-theft-001", "steal", ids[1])
+        state = self.engine.submit_action(code, ids[1], "black-pass-001", "pass")
+        state = self.engine.submit_action(code, ids[2], "black-pass-002", "pass")
+        self.assertEqual(state["phase"], "result")
+        self.assertEqual(state["players"][1]["coins"], 10)
+        self.assertTrue(any(row["reason"] == "guarded" for row in state["result"]["blocked_attacks"]))
+        with closing(self.store._connect()) as db:
+            reasons = [
+                row["reason"] for row in db.execute(
+                    "SELECT reason FROM coin_ledger WHERE match_id = ? AND round_no = 1",
+                    (state["match_id"],),
+                ).fetchall()
+            ]
+        self.assertIn("black_box_bonus", reasons)
+        self.assertIn("black_box_trap", reasons)
+
+    def test_bomb_pass_chain_hits_last_carrier_and_records_penalty(self):
+        event = dict(ROUND_EVENTS["bomb"])
+        code, tokens, ids, state = self.start_with_event(3, event)
+        event["bomb_holder_id"] = ids[0]
+        self.set_round_event_payload(state["match_id"], 1, event)
+        state = self.engine.get_state(code, ids[0])
+        self.assertEqual(state["phase"], "event")
+        self.assertEqual(state["round_event"]["bomb_starter_name"], "Player 1")
+
+        state = self.engine.submit_event(
+            code, ids[0], "bomb-pass-0001", "pass", target_player_id=ids[1]
+        )
+        state = self.engine.submit_event(
+            code, ids[1], "bomb-pass-0002", "pass", target_player_id=ids[2]
+        )
+        state = self.engine.submit_event(code, ids[2], "bomb-keep-0003", "keep")
+        self.assertEqual(state["phase"], "actions")
+        self.assertEqual(state["event_result"]["path_names"], ["Player 1", "Player 2", "Player 3"])
+        self.assertEqual(state["event_result"]["final_holder_name"], "Player 3")
+        self.assertEqual(state["event_result"]["damage"], 2)
+        self.assertEqual(state["players"][2]["coins"], 8)
+        with closing(self.store._connect()) as db:
+            row = db.execute(
+                "SELECT delta FROM coin_ledger WHERE match_id = ? AND reason = 'bomb_penalty'",
+                (state["match_id"],),
+            ).fetchone()
+        self.assertEqual(row["delta"], -2)
+
+    def test_bomb_cycle_explodes_on_last_player_who_attempted_to_pass(self):
+        event = dict(ROUND_EVENTS["bomb"])
+        code, tokens, ids, state = self.start_with_event(3, event)
+        event["bomb_holder_id"] = ids[0]
+        self.set_round_event_payload(state["match_id"], 1, event)
+        self.engine.get_state(code, ids[0])
+        self.engine.submit_event(
+            code, ids[0], "bomb-loop-0001", "pass", target_player_id=ids[1]
+        )
+        state = self.engine.submit_event(
+            code, ids[1], "bomb-loop-0002", "pass", target_player_id=ids[0]
+        )
+        self.assertEqual(state["event_result"]["final_holder_name"], "Player 2")
+        self.assertEqual(state["players"][1]["coins"], 8)
+        self.assertEqual(state["players"][0]["coins"], 10)
+
+    def test_secret_auction_tie_rotates_winner_and_grants_free_shield(self):
+        event = dict(ROUND_EVENTS["secret_auction"])
+        code, tokens, ids, state = self.start_with_event(3, event)
+        self.assertEqual(state["phase"], "event")
+        bids = [3, 3, 1]
+        for index, player_id in enumerate(ids):
+            state = self.engine.submit_event(
+                code, player_id, "auction-bid-%02d" % index, "bid", amount=bids[index]
+            )
+        self.assertEqual(state["phase"], "actions")
+        self.assertEqual(state["event_result"]["winner_name"], "Player 1")
+        self.assertEqual(state["event_result"]["winning_bid"], 3)
+        self.assertEqual(state["event_result"]["shield_names"], ["Player 1"])
+        self.assertEqual(state["players"][0]["coins"], 7)
+
+        state = self.engine.submit_action(code, ids[0], "auction-pass-001", "pass")
+        state = self.engine.submit_action(code, ids[1], "auction-steal-01", "steal", ids[0])
+        state = self.engine.submit_action(code, ids[2], "auction-pass-002", "pass")
+        self.assertEqual(state["phase"], "result")
+        self.assertEqual(state["players"][0]["coins"], 7)
+        self.assertTrue(any(
+            row["reason"] == "guarded" for row in state["result"]["blocked_attacks"]
+        ))
+
+    def test_secret_auction_rejects_bid_above_balance_and_locks_after_submit(self):
+        event = dict(ROUND_EVENTS["secret_auction"])
+        code, tokens, ids, state = self.start_with_event(3, event)
+        with self.assertRaises(InvalidInput):
+            self.engine.submit_event(code, ids[0], "auction-invalid-01", "bid", amount=11)
+        first = self.engine.submit_event(
+            code, ids[0], "auction-valid-001", "bid", amount=2
+        )
+        self.assertTrue(first["private"]["event_submitted"])
+        with self.assertRaises(ActionLocked):
+            self.engine.submit_event(
+                code, ids[0], "auction-valid-002", "bid", amount=1
+            )
+
+    def test_court_needs_absolute_majority_and_cannot_vote_for_self(self):
+        event = dict(ROUND_EVENTS["court"])
+        code, tokens, ids, state = self.start_with_event(3, event)
+        with self.assertRaises(InvalidInput):
+            self.engine.submit_event(
+                code, ids[0], "court-self-0001", "vote", target_player_id=ids[0]
+            )
+        state = self.engine.submit_event(
+            code, ids[0], "court-vote-0001", "vote", target_player_id=ids[2]
+        )
+        state = self.engine.submit_event(
+            code, ids[1], "court-vote-0002", "vote", target_player_id=ids[2]
+        )
+        state = self.engine.submit_event(code, ids[2], "court-abstain-01", "abstain")
+        self.assertEqual(state["phase"], "actions")
+        self.assertTrue(state["event_result"]["majority"])
+        self.assertEqual(state["event_result"]["target_name"], "Player 3")
+        self.assertEqual(state["event_result"]["penalty"], 1)
+        self.assertEqual(state["players"][2]["coins"], 9)
+
+    def test_temporary_king_gets_crown_bonus_free_guard_and_extra_steal(self):
+        event = dict(ROUND_EVENTS["temporary_king"])
+        code, tokens = self.create_ready_room(3)
+        ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        state = self.engine.start_match(code, ids[0])
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_players SET coins = CASE player_id "
+                "WHEN ? THEN 10 WHEN ? THEN 3 ELSE 7 END WHERE match_id = ?",
+                (ids[0], ids[1], state["match_id"]),
+            )
+        event["king_player_id"] = ids[1]
+        self.set_round_event_payload(state["match_id"], 1, event)
+        state = self.answer_challenge_for_all(code, state)
+        self.assertEqual(state["phase"], "actions")
+        self.assertEqual(state["event_result"]["king_name"], "Player 2")
+        self.assertEqual(state["players"][1]["coins"], 4)
+        self.assertTrue(state["private"]["is_temporary_king"])
+        self.assertFalse(self.engine.get_state(code, ids[0])["private"]["is_temporary_king"])
+
+        state = self.engine.submit_action(code, ids[0], "king-target-001", "steal", ids[1])
+        state = self.engine.submit_action(code, ids[1], "king-steal-0001", "steal", ids[0])
+        state = self.engine.submit_action(code, ids[2], "king-pass-0001", "pass")
+        self.assertEqual(state["phase"], "revenge")
+        self.assertEqual(state["players"][0]["coins"], 7)
+        self.assertEqual(state["players"][1]["coins"], 7)
+        self.assertTrue(any(
+            row["reason"] == "guarded" for row in state["result"]["blocked_attacks"]
+        ))
+        self.assertEqual(state["result"]["thefts"][0]["amount"], 3)
+
+    def test_temporary_king_selection_uses_lowest_balance_and_rotates_ties(self):
+        code, tokens = self.create_ready_room(3)
+        player_ids = [self.store.get_session(token)["player_id"] for token in tokens]
+        state = self.engine.start_match(code, player_ids[0])
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE match_players SET coins = CASE player_id "
+                "WHEN ? THEN 2 WHEN ? THEN 2 ELSE 5 END WHERE match_id = ?",
+                (player_ids[0], player_ids[1], state["match_id"]),
+            )
+            db.execute("BEGIN")
+            with patch.object(
+                self.engine, "_next_round_event",
+                return_value=dict(ROUND_EVENTS["temporary_king"]),
+            ):
+                first = self.engine._prepare_round_event(
+                    db, state["match_id"], 2, "opening"
+                )
+                second = self.engine._prepare_round_event(
+                    db, state["match_id"], 3, "opening"
+                )
+            db.commit()
+        self.assertEqual(first["king_player_id"], player_ids[0])
+        self.assertEqual(second["king_player_id"], player_ids[1])
+
+    def test_event_timeout_uses_safe_defaults_and_opens_actions(self):
+        event = dict(
+            ROUND_EVENTS["black_box"],
+            box_contents=["bonus", "shield", "trap"],
+        )
+        code, tokens, ids, state = self.start_with_event(3, event)
+        with closing(self.store._connect()) as db:
+            db.execute(
+                "UPDATE matches SET deadline_at = ? WHERE id = ?",
+                (int(time.time()) - 1, state["match_id"]),
+            )
+        timed_out = self.engine.get_state(code, ids[0])
+        self.assertEqual(timed_out["phase"], "actions")
+        self.assertEqual(timed_out["players"][0]["coins"], 10)
+        self.assertEqual(timed_out["players"][1]["coins"], 10)
+        self.assertEqual(timed_out["players"][2]["coins"], 10)
+        self.assertEqual(
+            [entry["outcome"] for entry in timed_out["event_result"]["entries"]],
+            ["لم يختر صندوقًا", "لم يختر صندوقًا", "لم يختر صندوقًا"],
+        )
 
 if __name__ == "__main__":
     unittest.main()
