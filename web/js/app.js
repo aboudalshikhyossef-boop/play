@@ -31,7 +31,8 @@
   }
 
   function show(element, visible) {
-    element.className = visible ? element.className.replace(/\s*hidden\b/g, "") : element.className + " hidden";
+    var className = element.className.replace(/\s*hidden\b/g, "").replace(/^\s+|\s+$/g, "");
+    element.className = visible ? className : className + " hidden";
   }
 
   function request(method, path, data, callback) {
