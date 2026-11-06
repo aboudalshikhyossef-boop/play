@@ -563,7 +563,6 @@ class MatchEngine:
                     first["reward"] = DUEL_WIN_REWARD
                     duel_results.append({
                         "outcome": "first_won",
-                        "winner_id": first["player_id"],
                         "winner_name": first["player_name"],
                         "opponent_name": second["player_name"],
                         "reward": DUEL_WIN_REWARD,
@@ -573,7 +572,6 @@ class MatchEngine:
                     duel_results.append({
                         "player_ids": list(pair),
                         "outcome": "second_won",
-                        "winner_id": second["player_id"],
                         "winner_name": second["player_name"],
                         "opponent_name": first["player_name"],
                         "reward": DUEL_WIN_REWARD,
@@ -584,7 +582,6 @@ class MatchEngine:
                     duel_results.append({
                         "player_ids": list(pair),
                         "outcome": "both_correct",
-                        "winner_id": None,
                         "winner_name": None,
                         "opponent_name": None,
                         "reward": CHALLENGE_REWARD,
