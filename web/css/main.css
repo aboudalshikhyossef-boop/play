@@ -682,3 +682,61 @@ label { display: block; margin: 10px 0 5px; color: #d8d9e6; font-size: 13px; fon
   .round-flow-step { padding: 8px; }
   .round-flow-step p { font-size: 10px; }
 }
+
+
+/* Distinct challenge modes and clear head-to-head reveal. */
+.challenge-mode-pill {
+  display: inline-block;
+  margin: 6px 0 3px;
+  padding: 6px 11px;
+  border: 1px solid #8572b9;
+  border-radius: 999px;
+  color: #e4d8ff;
+  background: #342d4c;
+  font-size: 12px;
+  font-weight: bold;
+}
+.challenge-mode-help {
+  margin: 5px 0 10px;
+  padding: 9px 11px;
+  border-right: 3px solid #7b9cbd;
+  border-radius: 6px;
+  color: #d5e4f4;
+  background: #253548;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.challenge-opponent {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #a47c3e;
+  border-radius: 8px;
+  color: #ffe0a0;
+  background: #3a3021;
+  font-weight: bold;
+  font-size: 13px;
+}
+.challenge-prompt { white-space: pre-line; }
+.challenge-duel-results {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #4c5470;
+}
+.challenge-duel-row {
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid #8a7047;
+  border-radius: 8px;
+  color: #ffe6b4;
+  background: #352d22;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.8;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+@media screen and (max-width: 360px) {
+  .challenge-mode-help,
+  .challenge-duel-row { font-size: 11px; }
+  .challenge-opponent { font-size: 12px; }
+}
