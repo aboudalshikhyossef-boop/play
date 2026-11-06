@@ -162,8 +162,9 @@ class HTTPAPITests(unittest.TestCase):
             "POST", "/api/rooms/%s/start" % created["invite_code"], {}, creator_cookie
         )
         self.assertEqual(status, 201)
-        self.assertEqual(match["phase"], "actions")
+        self.assertEqual(match["phase"], "challenge")
         self.assertEqual(match["player_count"], 3)
+        self.assertNotIn("correct_index", match["challenge"])
 
         status, snapshot, _ = self.request(
             "GET", "/api/rooms/%s/match" % created["invite_code"], cookie=creator_cookie
@@ -177,6 +178,22 @@ class HTTPAPITests(unittest.TestCase):
         )
         self.assertEqual(status, 409)
 
+        status, _blocked_action, _ = self.request(
+            "POST", "/api/rooms/%s/match/action" % created["invite_code"],
+            {"request_id": "api-action-0000", "action": "pass", "amount": 0},
+            creator_cookie
+        )
+        self.assertEqual(status, 409)
+
+        for index, cookie_value in enumerate(cookies):
+            status, challenge_state, _ = self.request(
+                "POST", "/api/rooms/%s/match/challenge" % created["invite_code"],
+                {"request_id": "api-challenge-%02d" % index, "answer_index": 0},
+                cookie_value
+            )
+            self.assertEqual(status, 200)
+
+        self.assertEqual(challenge_state["phase"], "actions")
         status, action_state, _ = self.request(
             "POST", "/api/rooms/%s/match/action" % created["invite_code"],
             {"request_id": "api-action-0001", "action": "pass", "amount": 0},
@@ -185,6 +202,7 @@ class HTTPAPITests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(action_state["phase"], "actions")
         self.assertTrue(action_state["private"]["action_submitted"])
+        self.assertIsNotNone(action_state["challenge_result"])
 
 
 if __name__ == "__main__":
