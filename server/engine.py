@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from .challenges import (
     CHALLENGE_REWARD,
     CHALLENGE_SECONDS,
+    DUEL_WIN_REWARD,
     challenge_fingerprint,
     generate_challenge,
     ROUND_CHALLENGES,
@@ -325,8 +326,25 @@ class MatchEngine:
         # match starts. The UNIQUE fingerprint remains the final race-condition
         # guard and history intentionally has no FK to matches, so rematches and
         # even deletion of old match records cannot erase played-question history.
+        player_rows = db.execute(
+            "SELECT player_id FROM match_players WHERE match_id = ? ORDER BY seat",
+            (match_id,),
+        ).fetchall()
+        player_count = len(player_rows)
+
         for _attempt in range(256):
-            challenge = generate_challenge()
+            challenge = generate_challenge(player_count=player_count)
+            if challenge.get("mode") == "duel":
+                pairings = (
+                    ((0, 1), (2, 3)),
+                    ((0, 2), (1, 3)),
+                    ((0, 3), (1, 2)),
+                )
+                selected_pairs = pairings[(round_no - 1) % len(pairings)]
+                challenge["duel_pairs"] = [
+                    [player_rows[first]["player_id"], player_rows[second]["player_id"]]
+                    for first, second in selected_pairs
+                ]
             fingerprint = challenge_fingerprint(
                 challenge["prompt"], challenge["options"]
             )
@@ -489,33 +507,93 @@ class MatchEngine:
             (round_no, match_id),
         ).fetchall()
 
-        answers = []
+        mode = challenge.get("mode", "quiz")
+        answer_by_id = {}
         for player in players:
             answer_index = player["answer_index"]
             answered = answer_index is not None
-            correct = answered and answer_index == challenge["correct_index"]
-            reward = CHALLENGE_REWARD if correct else 0
-            if reward:
-                db.execute(
-                    "UPDATE match_players SET coins = coins + ? WHERE match_id = ? AND player_id = ?",
-                    (reward, match_id, player["player_id"]),
-                )
-                self._append_ledger(
-                    db, match_id, round_no, player["player_id"], reward,
-                    "challenge_reward", now=now,
-                )
-            answers.append({
+            answer_by_id[player["player_id"]] = {
                 "player_id": player["player_id"],
                 "player_name": player["display_name"],
                 "answered": bool(answered),
                 "answer_index": answer_index,
                 "answer_text": challenge["options"][answer_index] if answered else None,
-                "correct": bool(correct),
-                "reward": reward,
-            })
+                "correct": bool(answered and answer_index == challenge["correct_index"]),
+                "reward": 0,
+            }
+
+        duel_results = []
+        if mode == "duel":
+            if len(challenge.get("duel_pairs", [])) != 2:
+                raise StoreError("بيانات المواجهة الثنائية غير مكتملة.")
+            for pair in challenge["duel_pairs"]:
+                if len(pair) != 2 or pair[0] not in answer_by_id or pair[1] not in answer_by_id:
+                    raise StoreError("ترتيب لاعبي المواجهة غير صالح.")
+                first = answer_by_id[pair[0]]
+                second = answer_by_id[pair[1]]
+                if first["correct"] and not second["correct"]:
+                    first["reward"] = DUEL_WIN_REWARD
+                    duel_results.append({
+                        "player_ids": list(pair),
+                        "outcome": "first_won",
+                        "winner_id": first["player_id"],
+                        "winner_name": first["player_name"],
+                        "opponent_name": second["player_name"],
+                        "reward": DUEL_WIN_REWARD,
+                    })
+                elif second["correct"] and not first["correct"]:
+                    second["reward"] = DUEL_WIN_REWARD
+                    duel_results.append({
+                        "player_ids": list(pair),
+                        "outcome": "second_won",
+                        "winner_id": second["player_id"],
+                        "winner_name": second["player_name"],
+                        "opponent_name": first["player_name"],
+                        "reward": DUEL_WIN_REWARD,
+                    })
+                elif first["correct"] and second["correct"]:
+                    first["reward"] = CHALLENGE_REWARD
+                    second["reward"] = CHALLENGE_REWARD
+                    duel_results.append({
+                        "player_ids": list(pair),
+                        "outcome": "both_correct",
+                        "winner_id": None,
+                        "winner_name": None,
+                        "opponent_name": None,
+                        "reward": CHALLENGE_REWARD,
+                    })
+                else:
+                    duel_results.append({
+                        "player_ids": list(pair),
+                        "outcome": "no_correct_answer",
+                        "winner_id": None,
+                        "winner_name": None,
+                        "opponent_name": None,
+                        "reward": 0,
+                    })
+        else:
+            for answer in answer_by_id.values():
+                if answer["correct"]:
+                    answer["reward"] = CHALLENGE_REWARD
+
+        answers = list(answer_by_id.values())
+        for answer in answers:
+            reward = answer["reward"]
+            if reward:
+                db.execute(
+                    "UPDATE match_players SET coins = coins + ? WHERE match_id = ? AND player_id = ?",
+                    (reward, match_id, answer["player_id"]),
+                )
+                reason = "duel_reward" if mode == "duel" else "challenge_reward"
+                self._append_ledger(
+                    db, match_id, round_no, answer["player_id"], reward,
+                    reason, now=now,
+                )
 
         result = {
             "challenge_id": challenge["id"],
+            "mode": mode,
+            "mode_label": challenge.get("mode_label", "تحدّي معلومات"),
             "title": challenge["title"],
             "prompt": challenge["prompt"],
             "correct_index": challenge["correct_index"],
@@ -523,6 +601,7 @@ class MatchEngine:
             "explanation": challenge["explanation"],
             "reward": CHALLENGE_REWARD,
             "answers": answers,
+            "duel_results": duel_results,
         }
         db.execute(
             "UPDATE match_rounds SET challenge_result_json = ? "
@@ -1204,12 +1283,30 @@ class MatchEngine:
                 challenge_data = dict(ROUND_CHALLENGES[0])
             public_challenge = {
                 "id": challenge_data["id"],
+                "mode": challenge_data.get("mode", "quiz"),
+                "mode_label": challenge_data.get("mode_label", "تحدّي معلومات"),
+                "mode_description": challenge_data.get(
+                    "mode_description", "أجب عن السؤال؛ الإجابة الصحيحة تمنحك عملتين."
+                ),
                 "family": challenge_data["family"],
                 "title": challenge_data["title"],
                 "prompt": challenge_data["prompt"],
                 "options": list(challenge_data["options"]),
                 "reward": CHALLENGE_REWARD,
+                "duel_opponent": None,
             }
+            if public_challenge["mode"] == "duel":
+                for pair in challenge_data.get("duel_pairs", []):
+                    if player_id in pair:
+                        opponent_id = pair[0] if pair[1] == player_id else pair[1]
+                        opponent = next(
+                            (row for row in players if row["player_id"] == opponent_id),
+                            None,
+                        )
+                        public_challenge["duel_opponent"] = (
+                            opponent["display_name"] if opponent else None
+                        )
+                        break
             public_phase = (
                 "challenge"
                 if match["status"] == "active"
